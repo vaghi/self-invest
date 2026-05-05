@@ -1,0 +1,31 @@
+import { Outlet, useLocation } from 'react-router';
+import Sidebar from './Sidebar';
+import Header from './Header';
+
+const pageTitles: Record<string, string> = {
+  '/': 'Dashboard',
+  '/positions': 'Positions',
+  '/trades': 'Trade History',
+  '/agent': 'Agent',
+  '/market': 'Market',
+  '/settings': 'Settings',
+};
+
+export default function Layout() {
+  const { pathname } = useLocation();
+  const title = pageTitles[pathname] ?? 'Self-Invest';
+
+  return (
+    <div className="flex min-h-screen bg-surface-950 text-gray-100">
+      <Sidebar />
+
+      <div className="flex flex-1 flex-col pl-64">
+        <Header title={title} />
+
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}

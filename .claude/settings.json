@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Read(//Users/agustinvaghi/Documents/Projects/**)",
+      "Bash(chmod +x /Users/agustinvaghi/Documents/Projects/self-invest/scripts/setup.sh)",
+      "Bash(pkill -f \"npm install\")"
+    ]
+  }
+}

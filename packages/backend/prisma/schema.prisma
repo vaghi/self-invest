@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BrokerType {
+  ALPACA
+  BINANCE
+}
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+  STOP
+  STOP_LIMIT
+}
+
+enum OrderStatus {
+  PENDING
+  FILLED
+  PARTIALLY_FILLED
+  CANCELLED
+  REJECTED
+  EXPIRED
+}
+
+enum AIProviderType {
+  CLAUDE
+  OPENAI
+  GROK
+  OLLAMA
+  LMSTUDIO
+}
+
+enum AnalysisType {
+  MARKET_SCAN
+  TRADE_DECISION
+  RISK_CHECK
+  NEWS_DIGEST
+}
+
+enum AgentEventType {
+  STATE_CHANGE
+  TRADE_EXECUTED
+  ANALYSIS_COMPLETE
+  ERROR
+  DEATH
+  STARTED
+  PAUSED
+  RESUMED
+}
+
+model BrokerConnection {
+  id              String     @id @default(uuid())
+  brokerType      BrokerType
+  encryptedApiKey String
+  encryptedSecret String
+  isPaperTrading  Boolean    @default(true)
+  isActive        Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@map("broker_connections")
+}
+
+model Trade {
+  id            String      @id @default(uuid())
+  brokerTradeId String?
+  symbol        String
+  side          OrderSide
+  quantity      String
+  price         String
+  totalCost     String
+  commission    String      @default("0")
+  status        OrderStatus
+  orderType     OrderType
+  isPaper       Boolean     @default(true)
+  filledAt      DateTime?
+  createdAt     DateTime    @default(now())
+
+  aiAnalysis   AIAnalysis? @relation(fields: [aiAnalysisId], references: [id])
+  aiAnalysisId String?
+
+  @@index([symbol])
+  @@index([createdAt])
+  @@map("trades")
+}
+
+model Position {
+  id              String   @id @default(uuid())
+  symbol          String   @unique
+  quantity        String
+  avgEntryPrice   String
+  currentPrice    String   @default("0")
+  unrealizedPnL   String   @default("0")
+  realizedPnL     String   @default("0")
+  side            String   @default("long")
+  stopLossPrice   String?
+  takeProfitPrice String?
+  openedAt        DateTime @default(now())
+  closedAt        DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@index([symbol])
+  @@map("positions")
+}
+
+model PortfolioSnapshot {
+  id            String   @id @default(uuid())
+  totalValue    String
+  cashBalance   String
+  investedValue String
+  dayPnL        String
+  totalPnL      String
+  snapshotAt    DateTime @default(now())
+
+  @@index([snapshotAt])
+  @@map("portfolio_snapshots")
+}
+
+model AIAnalysis {
+  id           String         @id @default(uuid())
+  provider     AIProviderType
+  model        String
+  analysisType AnalysisType
+  inputData    Json
+  outputData   Json
+  reasoning    String
+  confidence   Float
+  tokensUsed   Json
+  latencyMs    Int
+  costUsd      String         @default("0")
+  createdAt    DateTime       @default(now())
+
+  trades Trade[]
+
+  @@index([createdAt])
+  @@index([analysisType])
+  @@map("ai_analyses")
+}
+
+model AgentEvent {
+  id        String         @id @default(uuid())
+  eventType AgentEventType
+  payload   Json
+  createdAt DateTime       @default(now())
+
+  @@index([createdAt])
+  @@index([eventType])
+  @@map("agent_events")
+}
+
+model RiskConfiguration {
+  id                       String   @id @default(uuid())
+  maxPositionSizePct       Float    @default(10)
+  maxPortfolioDrawdownPct  Float    @default(20)
+  maxDailyLossPct          Float    @default(5)
+  maxOpenPositions         Int      @default(10)
+  defaultStopLossPct       Float    @default(3)
+  maxSectorConcentrationPct Float   @default(30)
+  minCashReservePct        Float    @default(20)
+  isActive                 Boolean  @default(true)
+  updatedAt                DateTime @updatedAt
+
+  @@map("risk_configurations")
+}
+
+model Settings {
+  id    String @id @default(uuid())
+  key   String @unique
+  value Json
+
+  @@map("settings")
+}
