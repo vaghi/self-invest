@@ -3,9 +3,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import { ToastContainer } from './components/common/ToastContainer';
+import { ChatButton } from './components/chat/ChatButton';
+import { ChatPanel } from './components/chat/ChatPanel';
 import { wsClient } from './services/websocket';
 import { usePortfolioStore } from './stores/portfolio.store';
 import { useAgentStore } from './stores/agent.store';
+import { useChatStore } from './stores/chat.store';
+import { showError } from './stores/toast.store';
 import Dashboard from './pages/Dashboard';
 import Positions from './pages/Positions';
 import TradeHistory from './pages/TradeHistory';
@@ -23,6 +28,7 @@ function WebSocketManager() {
   const updateBalance = usePortfolioStore((s) => s.updateBalance);
   const updatePosition = usePortfolioStore((s) => s.updatePosition);
   const setAgentState = useAgentStore((s) => s.setState);
+  const addChatMessage = useChatStore((s) => s.addMessage);
 
   useEffect(() => {
     const wsUrl = `ws://${window.location.hostname}:${window.location.port}/ws`;
@@ -36,11 +42,23 @@ function WebSocketManager() {
         case 'position_update':
           updatePosition(event.data as any);
           break;
-        case 'agent_state_change':
-          setAgentState((event.data as any).to);
+        case 'agent_state_change': {
+          const { to, reason } = event.data as any;
+          setAgentState(to, reason);
+          if (to === 'error') {
+            showError('Agent Error', reason || 'The agent encountered an error. Click the status badge for details.');
+          }
           break;
+        }
         case 'agent_death':
           setAgentState('dead');
+          showError('Agent Terminated', 'Balance depleted to zero. The agent has died.');
+          break;
+        case 'error':
+          showError('Error', (event.data as any).message || 'An unexpected error occurred');
+          break;
+        case 'chat_message':
+          addChatMessage(event.data as any);
           break;
       }
     });
@@ -60,6 +78,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <WebSocketManager />
+          <ToastContainer />
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
@@ -70,6 +89,8 @@ export default function App() {
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>
+          <ChatButton />
+          <ChatPanel />
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>

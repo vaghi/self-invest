@@ -3,6 +3,7 @@ import { useSettingsStore } from '../stores/settings.store';
 import AIProviderSelector from '../components/settings/AIProviderSelector';
 import BrokerConfig from '../components/settings/BrokerConfig';
 import RiskParamsForm from '../components/settings/RiskParamsForm';
+import IntervalConfig from '../components/settings/IntervalConfig';
 
 export default function Settings() {
   const { fetchSettings } = useSettingsStore();
@@ -21,6 +22,11 @@ export default function Settings() {
       <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <h2 className="text-lg font-semibold text-gray-100 mb-6">AI Provider</h2>
         <AIProviderSelector />
+      </section>
+
+      <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <h2 className="text-lg font-semibold text-gray-100 mb-6">Analysis Interval</h2>
+        <IntervalConfig />
       </section>
 
       <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">

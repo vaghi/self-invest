@@ -4,3 +4,4 @@ export * from './ai.js';
 export * from './broker.js';
 export * from './risk.js';
 export * from './agent.js';
+export * from './chat.js';

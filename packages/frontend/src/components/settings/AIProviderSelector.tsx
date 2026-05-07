@@ -8,6 +8,8 @@ const PROVIDER_LABELS: Record<AIProviderType, string> = {
   claude: 'Claude (Anthropic)',
   openai: 'OpenAI',
   grok: 'Grok (xAI)',
+  gemini: 'Gemini (Google) - Free',
+  groq: 'Groq Cloud - Free',
   ollama: 'Ollama (Local)',
   lmstudio: 'LM Studio (Local)',
 };
@@ -15,7 +17,7 @@ const PROVIDER_LABELS: Record<AIProviderType, string> = {
 const LOCAL_PROVIDERS: AIProviderType[] = ['ollama', 'lmstudio'];
 
 export default function AIProviderSelector() {
-  const { aiProvider, setAIProvider, loading, error } = useSettingsStore();
+  const { aiProvider, setAIProvider, loading, aiError: error } = useSettingsStore();
 
   const [selectedType, setSelectedType] = useState<AIProviderType>(
     aiProvider?.type ?? 'claude',
@@ -37,7 +39,7 @@ export default function AIProviderSelector() {
 
   async function handleConnect() {
     try {
-      await setAIProvider(selectedType, selectedModel);
+      await setAIProvider(selectedType, selectedModel, isLocal ? undefined : apiKey);
       setConnected(true);
     } catch {
       setConnected(false);
@@ -68,8 +70,8 @@ export default function AIProviderSelector() {
         <select
           value={selectedType}
           onChange={(e) => handleProviderChange(e.target.value as AIProviderType)}
-          className="w-full rounded-lg bg-surface-900 border border-surface-700 px-3 py-2 text-sm text-gray-200
-                     focus:outline-none focus:border-brand-500 transition"
+          className="w-full rounded-lg bg-surface-900 border border-surface-700 px-3 pr-8 py-2 text-sm text-gray-200
+                     focus:outline-none focus:border-brand-500 transition appearance-none"
         >
           {(Object.keys(PROVIDER_LABELS) as AIProviderType[]).map((type) => (
             <option key={type} value={type}>
@@ -85,8 +87,8 @@ export default function AIProviderSelector() {
         <select
           value={selectedModel}
           onChange={(e) => setSelectedModel(e.target.value)}
-          className="w-full rounded-lg bg-surface-900 border border-surface-700 px-3 py-2 text-sm text-gray-200
-                     focus:outline-none focus:border-brand-500 transition"
+          className="w-full rounded-lg bg-surface-900 border border-surface-700 px-3 pr-8 py-2 text-sm text-gray-200
+                     focus:outline-none focus:border-brand-500 transition appearance-none"
         >
           {models.map((model) => (
             <option key={model} value={model}>

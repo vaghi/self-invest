@@ -3,7 +3,9 @@ import {
   startAgent, stopAgent, pauseAgent, resumeAgent,
   triggerAnalysis, getSchedulerStatus,
 } from '../../agent/scheduler.js';
-import { getAgentState, getAgentUptime } from '../../agent/state-machine.js';
+import { getAgentState, getAgentUptime, getLastError } from '../../agent/state-machine.js';
+import { getActiveBroker } from '../../broker/factory.js';
+import { getActiveAIProvider } from '../../ai/factory.js';
 import { prisma } from '../../db/client.js';
 
 export const agentRouter = Router();
@@ -15,6 +17,7 @@ agentRouter.get('/status', async (_req, res) => {
 
   res.json({
     state: getAgentState(),
+    lastError: getLastError(),
     uptime: getAgentUptime(),
     totalTradesExecuted: totalTrades,
     successRate: totalTrades > 0 ? filledTrades / totalTrades : 0,
@@ -23,7 +26,24 @@ agentRouter.get('/status', async (_req, res) => {
 });
 
 agentRouter.post('/start', async (_req, res) => {
+  const broker = getActiveBroker();
+  if (!broker || !broker.isConnected()) {
+    res.status(400).json({ error: 'Broker not connected. Go to Settings and connect your Alpaca API keys first.' });
+    return;
+  }
+
+  const ai = getActiveAIProvider();
+  if (!ai) {
+    res.status(400).json({ error: 'AI provider not configured. Go to Settings and select an AI provider (Claude, OpenAI, Grok, or Ollama).' });
+    return;
+  }
+
   const started = startAgent();
+  if (!started) {
+    res.status(400).json({ error: 'Agent could not start. It may already be running or has been terminated.' });
+    return;
+  }
+
   res.json({ started, state: getAgentState() });
 });
 
@@ -38,11 +58,35 @@ agentRouter.post('/pause', async (_req, res) => {
 });
 
 agentRouter.post('/resume', async (_req, res) => {
+  const broker = getActiveBroker();
+  if (!broker || !broker.isConnected()) {
+    res.status(400).json({ error: 'Broker not connected. Go to Settings and reconnect your broker.' });
+    return;
+  }
+
+  const ai = getActiveAIProvider();
+  if (!ai) {
+    res.status(400).json({ error: 'AI provider not configured. Go to Settings and select an AI provider.' });
+    return;
+  }
+
   resumeAgent();
   res.json({ resumed: true, state: getAgentState() });
 });
 
 agentRouter.post('/analyze-now', async (_req, res) => {
+  const broker = getActiveBroker();
+  if (!broker || !broker.isConnected()) {
+    res.status(400).json({ error: 'Broker not connected. Go to Settings and connect your Alpaca API keys first.' });
+    return;
+  }
+
+  const ai = getActiveAIProvider();
+  if (!ai) {
+    res.status(400).json({ error: 'AI provider not configured. Go to Settings and select an AI provider.' });
+    return;
+  }
+
   try {
     await triggerAnalysis();
     res.json({ triggered: true, state: getAgentState() });

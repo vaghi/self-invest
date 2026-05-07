@@ -1,10 +1,14 @@
 import type {
-  Balance, Position, MarketDataPackage, TradeProposal,
+  Balance, Position, Order, MarketDataPackage, TradeProposal,
   MarketAnalysisResult, TradeDecisionResult,
 } from '@self-invest/shared';
 import { requireBroker } from '../broker/factory.js';
+import type { IBrokerAdapter } from '../broker/interface.js';
 import { requireAIProvider } from '../ai/factory.js';
-import { MARKET_ANALYSIS_SYSTEM_PROMPT, TRADE_DECISION_SYSTEM_PROMPT } from '../ai/prompts/templates.js';
+import {
+  MARKET_ANALYSIS_SYSTEM_PROMPT, TRADE_DECISION_SYSTEM_PROMPT,
+  MARKET_ANALYSIS_COMPACT_PROMPT, TRADE_DECISION_COMPACT_PROMPT,
+} from '../ai/prompts/templates.js';
 import { parseMarketAnalysis, parseTradeDecision } from '../ai/response-parser.js';
 import { validateTrade, checkDeathCondition } from '../risk/manager.js';
 import { calculateIndicators } from '../market-data/indicators/technical.js';
@@ -12,8 +16,15 @@ import { transitionTo, isDead } from './state-machine.js';
 import { prisma } from '../db/client.js';
 import { eventBus } from '../services/event-bus.js';
 import { logger } from '../config/logger.js';
+import { trackError } from '../services/error-tracker.js';
+import { getActiveInstructionsBlock } from '../services/chat-processor.js';
 
-const DEFAULT_WATCHLIST = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'SPY', 'QQQ', 'IWM'];
+const WATCHLIST_FULL = [
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA',
+  'SPY', 'QQQ', 'IWM',
+  'AMD', 'NFLX', 'CRM', 'UBER', 'SQ', 'COIN', 'PLTR', 'SNAP', 'ROKU', 'SHOP',
+];
+const WATCHLIST_COMPACT = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'SPY', 'AMD', 'META'];
 const MAX_RETRIES = 3;
 
 export async function runPipeline(): Promise<void> {
@@ -26,6 +37,8 @@ export async function runPipeline(): Promise<void> {
     transitionTo('analyzing');
     const broker = requireBroker();
     const ai = requireAIProvider();
+
+    await syncPendingOrders(broker);
 
     const [balance, positions] = await Promise.all([
       broker.getBalance(),
@@ -40,16 +53,20 @@ export async function runPipeline(): Promise<void> {
     await takePortfolioSnapshot(balance);
 
     const heldSymbols = positions.map((p) => p.symbol);
-    const watchlist = [...new Set([...DEFAULT_WATCHLIST, ...heldSymbols])];
+    const baseWatchlist = ai.isLocal ? WATCHLIST_COMPACT : WATCHLIST_FULL;
+    const watchlist = [...new Set([...baseWatchlist, ...heldSymbols])];
 
-    const marketData = await gatherMarketData(watchlist);
+    const [marketData, instructionsBlock] = await Promise.all([
+      gatherMarketData(watchlist),
+      getActiveInstructionsBlock(),
+    ]);
 
     let analysis: MarketAnalysisResult | null = null;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const prompt = buildAnalysisPrompt(balance, positions, marketData);
+      const prompt = buildAnalysisPrompt(balance, positions, marketData, instructionsBlock);
       const response = await ai.analyze(prompt, {
-        systemPrompt: MARKET_ANALYSIS_SYSTEM_PROMPT,
-        maxTokens: 4096,
+        systemPrompt: ai.isLocal ? MARKET_ANALYSIS_COMPACT_PROMPT : MARKET_ANALYSIS_SYSTEM_PROMPT,
+        maxTokens: ai.isLocal ? 2048 : 4096,
         temperature: 0.2,
       });
 
@@ -90,12 +107,20 @@ export async function runPipeline(): Promise<void> {
 
     transitionTo('trading');
 
+    const openOrders = await broker.getOrders('open');
+    const recentTradesFromDb = await prisma.trade.findMany({
+      where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: { symbol: true, side: true, quantity: true, price: true, status: true, createdAt: true },
+    });
+
     let decision: TradeDecisionResult | null = null;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const prompt = buildDecisionPrompt(balance, positions, analysis);
+      const prompt = buildDecisionPrompt(balance, positions, analysis, openOrders, recentTradesFromDb, instructionsBlock);
       const response = await ai.analyze(prompt, {
-        systemPrompt: TRADE_DECISION_SYSTEM_PROMPT,
-        maxTokens: 4096,
+        systemPrompt: ai.isLocal ? TRADE_DECISION_COMPACT_PROMPT : TRADE_DECISION_SYSTEM_PROMPT,
+        maxTokens: ai.isLocal ? 2048 : 4096,
         temperature: 0.1,
       });
 
@@ -104,8 +129,8 @@ export async function runPipeline(): Promise<void> {
           provider: response.provider.toUpperCase() as any,
           model: response.model,
           analysisType: 'TRADE_DECISION',
-          inputData: { analysisResult: analysis },
-          outputData: response.parsed || {},
+          inputData: { analysisResult: analysis } as any,
+          outputData: (response.parsed || {}) as any,
           reasoning: response.content.slice(0, 2000),
           confidence: 0,
           tokensUsed: response.tokensUsed,
@@ -132,8 +157,15 @@ export async function runPipeline(): Promise<void> {
       select: { totalCost: true },
     });
 
+    const symbolsWithPendingOrders = new Set(openOrders.map((o) => o.symbol));
+
     for (const trade of decision.trades) {
       if (trade.action === 'hold') continue;
+
+      if (symbolsWithPendingOrders.has(trade.symbol)) {
+        logger.info({ symbol: trade.symbol }, 'Skipped: already has pending order');
+        continue;
+      }
 
       const proposal: TradeProposal = {
         symbol: trade.symbol,
@@ -165,108 +197,193 @@ export async function runPipeline(): Promise<void> {
           takeProfitPrice: trade.takeProfitPrice,
         });
 
+        const quote = await broker.getQuote(trade.symbol).catch(() => null);
+        const estimatedPrice = order.filledPrice || order.price || quote?.lastPrice || '0';
+        const qty = parseFloat(trade.quantity);
+        const price = parseFloat(estimatedPrice);
+
         const dbTrade = await prisma.trade.create({
           data: {
             brokerTradeId: order.brokerOrderId,
             symbol: trade.symbol,
             side: trade.action.toUpperCase() as any,
             quantity: trade.quantity,
-            price: order.price || '0',
-            totalCost: '0',
-            status: 'PENDING',
+            price: estimatedPrice,
+            totalCost: (qty * price).toFixed(2),
+            status: order.status === 'filled' ? 'FILLED' : 'PENDING',
             orderType: trade.orderType.toUpperCase() as any,
             isPaper: broker.isPaperTrading(),
           },
         });
 
+        symbolsWithPendingOrders.add(trade.symbol);
         eventBus.emit('trade_executed', dbTrade);
-        logger.info({ symbol: trade.symbol, side: trade.action, quantity: trade.quantity }, 'Trade executed');
+        logger.info({ symbol: trade.symbol, side: trade.action, quantity: trade.quantity, price: estimatedPrice }, 'Trade executed');
       } catch (err) {
-        logger.error({ err, symbol: trade.symbol }, 'Failed to execute trade');
+        trackError('trade_execution', err, { symbol: trade.symbol, side: trade.action });
       }
     }
 
     transitionTo('idle');
   } catch (err) {
-    logger.error({ err }, 'Pipeline error');
-    transitionTo('error');
+    trackError('agent_pipeline', err);
+    const message = err instanceof Error ? err.message : String(err);
+    transitionTo('error', message);
   }
 }
 
 async function gatherMarketData(symbols: string[]): Promise<MarketDataPackage[]> {
   const broker = requireBroker();
   const end = new Date();
-  const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const dailyStart = new Date(end.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const intradayStart = new Date(end.getTime() - 5 * 24 * 60 * 60 * 1000);
 
   const results: MarketDataPackage[] = [];
   for (const symbol of symbols) {
     try {
-      const [bars, quote] = await Promise.all([
-        broker.getBars(symbol, '1day', start, end),
+      const [dailyBars, intradayBars, quote] = await Promise.all([
+        broker.getBars(symbol, '1day', dailyStart, end),
+        broker.getBars(symbol, '15min', intradayStart, end).catch(() => []),
         broker.getQuote(symbol),
       ]);
-      const indicators = calculateIndicators(bars);
-      results.push({ symbol, bars: bars.slice(-30), quote, indicators, fetchedAt: new Date().toISOString() });
+      const indicators = calculateIndicators(dailyBars);
+      const intradayIndicators = calculateIndicators(intradayBars);
+
+      const merged: MarketDataPackage = {
+        symbol,
+        bars: dailyBars.slice(-30),
+        quote,
+        indicators: {
+          ...indicators,
+          vwap: intradayIndicators.vwap ?? indicators.vwap,
+        },
+        fetchedAt: new Date().toISOString(),
+      };
+      results.push(merged);
     } catch (err) {
-      logger.warn({ err, symbol }, 'Failed to fetch market data');
+      trackError('market_data', err, { symbol });
     }
   }
   return results;
 }
 
-function buildAnalysisPrompt(balance: Balance, positions: Position[], marketData: MarketDataPackage[]): string {
+function buildAnalysisPrompt(balance: Balance, positions: Position[], marketData: MarketDataPackage[], instructionsBlock: string): string {
   const symbolSummaries = marketData.map((md) => {
-    const lastBar = md.bars[md.bars.length - 1];
-    return `${md.symbol}: Price $${md.quote.lastPrice}, RSI=${md.indicators.rsi14?.toFixed(1) ?? 'N/A'}, ` +
-      `MACD=${md.indicators.macd ? md.indicators.macd.histogram.toFixed(3) : 'N/A'}, ` +
-      `SMA20=$${md.indicators.sma20?.toFixed(2) ?? 'N/A'}, SMA50=$${md.indicators.sma50?.toFixed(2) ?? 'N/A'}, ` +
-      `BB=[${md.indicators.bollingerBands ? `${md.indicators.bollingerBands.lower.toFixed(2)}-${md.indicators.bollingerBands.upper.toFixed(2)}` : 'N/A'}]`;
+    const bars = md.bars;
+    const price = parseFloat(md.quote.lastPrice);
+    const prevClose = bars.length >= 2 ? parseFloat(bars[bars.length - 2].close) : price;
+    const dayChange = ((price - prevClose) / prevClose * 100).toFixed(2);
+    const weekAgo = bars.length >= 6 ? parseFloat(bars[bars.length - 6].close) : price;
+    const weekChange = ((price - weekAgo) / weekAgo * 100).toFixed(2);
+    const ind = md.indicators;
+
+    let trend = 'neutral';
+    if (ind.sma20 && ind.sma50) {
+      if (price > ind.sma20 && ind.sma20 > ind.sma50) trend = 'bullish';
+      else if (price < ind.sma20 && ind.sma20 < ind.sma50) trend = 'bearish';
+    }
+
+    return `${md.symbol}: $${price.toFixed(2)} (day ${dayChange}%, week ${weekChange}%) trend=${trend} | RSI=${ind.rsi14?.toFixed(0) ?? '?'} MACD_hist=${ind.macd?.histogram.toFixed(3) ?? '?'} BB=[${ind.bollingerBands ? `${ind.bollingerBands.lower.toFixed(1)}-${ind.bollingerBands.upper.toFixed(1)}` : '?'}] SMA20=${ind.sma20?.toFixed(1) ?? '?'} SMA50=${ind.sma50?.toFixed(1) ?? '?'} VWAP=${ind.vwap?.toFixed(1) ?? '?'}`;
   }).join('\n');
 
-  return `PORTFOLIO STATE:
-Total Value: $${balance.totalValue}
-Cash: $${balance.cashBalance}
-Day P&L: $${balance.dayPnL} (${balance.dayPnLPercent}%)
-Open Positions: ${positions.length}
+  return `PORTFOLIO:
+Value: $${balance.totalValue} | Cash: $${balance.cashBalance} | Day P&L: $${balance.dayPnL} (${balance.dayPnLPercent}%) | Positions: ${positions.length}
 
-CURRENT POSITIONS:
-${positions.map((p) => `${p.symbol}: ${p.quantity} shares @ $${p.avgEntryPrice}, current $${p.currentPrice}, P&L $${p.unrealizedPnL}`).join('\n') || 'None'}
-
-MARKET DATA:
+HELD POSITIONS:
+${positions.map((p) => {
+  const pnlPct = parseFloat(p.unrealizedPnLPercent) * 100;
+  return `${p.symbol}: ${p.quantity} @ $${p.avgEntryPrice} → $${p.currentPrice} | P&L $${p.unrealizedPnL} (${pnlPct.toFixed(1)}%)${p.stopLossPrice ? ` | SL $${p.stopLossPrice}` : ''}`;
+}).join('\n') || 'None'}
+${instructionsBlock}
+MARKET DATA (sorted by opportunity):
 ${symbolSummaries}
 
-Analyze these markets and identify trading opportunities.`;
+Identify actionable trading opportunities. Be aggressive — find setups to BUY and existing positions to SELL for profit or cut for loss.`;
 }
 
-function buildDecisionPrompt(balance: Balance, positions: Position[], analysis: MarketAnalysisResult): string {
-  return `PORTFOLIO STATE:
-Total Value: $${balance.totalValue}
-Available Cash: $${balance.cashBalance}
-Buying Power: $${balance.buyingPower}
+function buildDecisionPrompt(
+  balance: Balance,
+  positions: Position[],
+  analysis: MarketAnalysisResult,
+  openOrders: Order[],
+  recentTrades: { symbol: string; side: string; quantity: string; price: string; status: string; createdAt: Date }[],
+  instructionsBlock: string,
+): string {
+  const pendingOrdersSummary = openOrders.length > 0
+    ? openOrders.map((o) => `${o.side.toUpperCase()} ${o.quantity} ${o.symbol} @ ${o.price} (${o.status})`).join('\n')
+    : 'None';
 
-CURRENT POSITIONS:
-${positions.map((p) => `${p.symbol}: ${p.quantity} shares, entry $${p.avgEntryPrice}, current $${p.currentPrice}, P&L $${p.unrealizedPnL}`).join('\n') || 'None'}
+  const recentTradesSummary = recentTrades.length > 0
+    ? recentTrades.map((t) => `${t.side} ${t.quantity} ${t.symbol} @ $${t.price} [${t.status}]`).join('\n')
+    : 'None';
 
-MARKET ANALYSIS:
-Sentiment: ${analysis.marketSentiment}
-Overall Confidence: ${(analysis.overallConfidence * 100).toFixed(0)}%
+  const positionActions = positions.map((p) => {
+    const pnlPct = parseFloat(p.unrealizedPnLPercent) * 100;
+    let signal = '';
+    if (pnlPct >= 3) signal = ' → TAKE PROFIT candidate';
+    else if (pnlPct <= -2) signal = ' → CUT LOSS candidate';
+    return `${p.symbol}: ${p.quantity} shares, entry $${p.avgEntryPrice}, now $${p.currentPrice}, P&L ${pnlPct.toFixed(1)}%${signal}`;
+  }).join('\n') || 'None';
 
-Bullish Opportunities:
-${analysis.bullishSymbols.map((s) => `- ${s.symbol} (${(s.confidence * 100).toFixed(0)}%): ${s.reason}`).join('\n') || 'None'}
+  const cashPct = (parseFloat(balance.cashBalance) / parseFloat(balance.totalValue) * 100).toFixed(0);
 
-Bearish Signals:
-${analysis.bearishSymbols.map((s) => `- ${s.symbol} (${(s.confidence * 100).toFixed(0)}%): ${s.reason}`).join('\n') || 'None'}
+  return `PORTFOLIO: $${balance.totalValue} | Cash: $${balance.cashBalance} (${cashPct}%) | Buying Power: $${balance.buyingPower}
 
-Risk Factors: ${analysis.riskFactors.join(', ') || 'None identified'}
+POSITIONS (review each — sell winners, cut losers):
+${positionActions}
 
-RISK CONSTRAINTS:
-- Max 10% of portfolio per position
-- Must maintain 20% cash reserve
-- Max 10 open positions
-- Every buy must have a stop loss (min 3% below entry)
-- Max 5% daily loss allowed
+PENDING ORDERS (DO NOT duplicate these):
+${pendingOrdersSummary}
 
-Based on this analysis, recommend specific trades.`;
+RECENT 24H TRADES:
+${recentTradesSummary}
+
+ANALYSIS: ${analysis.marketSentiment} sentiment, ${(analysis.overallConfidence * 100).toFixed(0)}% confidence
+
+BULLISH:
+${analysis.bullishSymbols.map((s) => `${s.symbol} (${(s.confidence * 100).toFixed(0)}%): ${s.reason}`).join('\n') || 'None'}
+
+BEARISH:
+${analysis.bearishSymbols.map((s) => `${s.symbol} (${(s.confidence * 100).toFixed(0)}%): ${s.reason}`).join('\n') || 'None'}
+
+Risks: ${analysis.riskFactors.join(', ') || 'None'}
+${instructionsBlock}
+CONSTRAINTS: Max 10% per position | 20% min cash reserve | Max 10 positions | Stop loss required (2-4% below) | Max 5% daily loss
+
+ACTION REQUIRED:
+1. Review each position above — take profit on winners (>=3%), cut losers (<=-2%)
+2. Find new entries from bullish signals
+3. DO NOT duplicate pending orders
+4. Calculate quantity: (portfolio_value * 0.07) / stock_price = shares to buy
+5. Recommend at least 1 trade per cycle`;
+}
+
+async function syncPendingOrders(broker: IBrokerAdapter): Promise<void> {
+  const pendingTrades = await prisma.trade.findMany({
+    where: { status: 'PENDING', brokerTradeId: { not: null } },
+  });
+
+  for (const trade of pendingTrades) {
+    try {
+      const order = await broker.getOrder(trade.brokerTradeId!);
+      if (order.status !== 'pending') {
+        await prisma.trade.update({
+          where: { id: trade.id },
+          data: {
+            status: order.status.toUpperCase().replace('PARTIALLY_', 'PARTIALLY_') as any,
+            price: order.filledPrice || trade.price,
+            totalCost: order.filledPrice
+              ? (parseFloat(order.filledQuantity) * parseFloat(order.filledPrice)).toFixed(2)
+              : trade.totalCost,
+            filledAt: order.filledAt ? new Date(order.filledAt) : undefined,
+          },
+        });
+        logger.info({ symbol: trade.symbol, status: order.status }, 'Order status synced');
+      }
+    } catch {
+      // Order may no longer exist on broker side
+    }
+  }
 }
 
 async function takePortfolioSnapshot(balance: Balance): Promise<void> {

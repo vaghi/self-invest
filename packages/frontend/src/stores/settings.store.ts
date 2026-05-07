@@ -1,15 +1,17 @@
 import { create } from 'zustand';
 import type { AIProviderType } from '@self-invest/shared';
 import api from '../services/api';
+import { showError, showSuccess } from './toast.store';
 
 interface SettingsState {
   aiProvider: { type: AIProviderType; model: string; isLocal: boolean } | null;
   brokerConnected: boolean;
   isPaperTrading: boolean;
   loading: boolean;
-  error: string | null;
+  aiError: string | null;
+  brokerError: string | null;
   fetchSettings: () => Promise<void>;
-  setAIProvider: (type: AIProviderType, model: string) => Promise<void>;
+  setAIProvider: (type: AIProviderType, model: string, apiKey?: string) => Promise<void>;
   connectBroker: (apiKey: string, apiSecret: string, paper: boolean) => Promise<boolean>;
   disconnectBroker: () => Promise<void>;
 }
@@ -19,7 +21,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   brokerConnected: false,
   isPaperTrading: true,
   loading: false,
-  error: null,
+  aiError: null,
+  brokerError: null,
 
   fetchSettings: async () => {
     try {
@@ -35,19 +38,24 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     } catch {}
   },
 
-  setAIProvider: async (type, model) => {
-    set({ loading: true, error: null });
+  setAIProvider: async (type, model, apiKey?) => {
+    set({ loading: true, aiError: null });
     try {
-      const { data } = await api.post('/settings/ai-provider', { type, model });
+      const body: Record<string, string> = { type, model };
+      if (apiKey) body.apiKey = apiKey;
+      const { data } = await api.post('/settings/ai-provider', body);
       set({ aiProvider: data.active, loading: false });
+      showSuccess('AI Provider Connected', `${type} (${model}) is now active.`);
     } catch (err: any) {
-      set({ error: err.response?.data?.error || err.message, loading: false });
+      const msg = err.response?.data?.error || err.message;
+      set({ aiError: msg, loading: false });
+      showError('AI Provider Error', msg);
       throw err;
     }
   },
 
   connectBroker: async (apiKey, apiSecret, paper) => {
-    set({ loading: true, error: null });
+    set({ loading: true, brokerError: null });
     try {
       await api.post('/auth/broker/connect', {
         apiKey,
@@ -56,9 +64,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         brokerType: 'alpaca',
       });
       set({ brokerConnected: true, isPaperTrading: paper, loading: false });
+      showSuccess('Broker Connected', `Alpaca ${paper ? 'paper trading' : 'live'} account connected.`);
       return true;
     } catch (err: any) {
-      set({ error: err.response?.data?.error || err.message, loading: false });
+      const msg = err.response?.data?.error || err.message;
+      set({ brokerError: msg, loading: false });
+      showError('Broker Connection Failed', msg);
       return false;
     }
   },
@@ -66,5 +77,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   disconnectBroker: async () => {
     await api.post('/auth/broker/disconnect');
     set({ brokerConnected: false });
+    showSuccess('Broker Disconnected', 'Alpaca account disconnected.');
   },
 }));

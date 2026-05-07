@@ -1,4 +1,4 @@
-export type AIProviderType = 'claude' | 'openai' | 'grok' | 'ollama' | 'lmstudio';
+export type AIProviderType = 'claude' | 'openai' | 'grok' | 'gemini' | 'groq' | 'ollama' | 'lmstudio';
 export type AnalysisType = 'market_scan' | 'trade_decision' | 'risk_check' | 'news_digest';
 
 export interface AIProviderConfig {
@@ -62,7 +62,9 @@ export interface AIResponse {
 export const AI_PROVIDER_MODELS: Record<AIProviderType, string[]> = {
   claude: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001'],
   openai: ['gpt-4o', 'gpt-4.1', 'gpt-4o-mini'],
-  grok: ['grok-3', 'grok-3-mini'],
-  ollama: ['mistral-nemo', 'llama3.1:70b', 'llama3.1:8b', 'mixtral:8x7b', 'phi3:medium'],
+  grok: ['grok-4.20-reasoning', 'grok-3', 'grok-3-mini'],
+  gemini: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro'],
+  groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+  ollama: ['llama3.2:1b', 'mistral-nemo', 'llama3.1:70b', 'llama3.1:8b', 'mixtral:8x7b', 'phi3:medium'],
   lmstudio: ['loaded-model'],
 };

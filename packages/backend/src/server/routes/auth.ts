@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createBrokerAdapter, getActiveBroker } from '../../broker/factory.js';
 import { encrypt, maskApiKey } from '../../services/credential-store.js';
+import { trackError } from '../../services/error-tracker.js';
 import { brokerCredentialsSchema } from '@self-invest/shared';
 import { prisma } from '../../db/client.js';
 import { logger } from '../../config/logger.js';
@@ -48,7 +49,7 @@ authRouter.post('/broker/connect', async (req, res) => {
       maskedApiKey: maskApiKey(apiKey),
     });
   } catch (err: any) {
-    logger.error({ err }, 'Failed to connect broker');
+    trackError('broker_connection', err, { brokerType: req.body.brokerType });
     res.status(400).json({ error: 'Failed to connect', message: err.message });
   }
 });

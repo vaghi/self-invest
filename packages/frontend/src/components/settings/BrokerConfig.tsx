@@ -3,7 +3,7 @@ import { Plug, Unplug, Loader2 } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settings.store';
 
 export default function BrokerConfig() {
-  const { brokerConnected, isPaperTrading, connectBroker, disconnectBroker, loading, error } =
+  const { brokerConnected, isPaperTrading, connectBroker, disconnectBroker, loading, brokerError: error } =
     useSettingsStore();
 
   const [apiKey, setApiKey] = useState('');

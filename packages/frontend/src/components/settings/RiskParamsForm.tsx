@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Loader2, CheckCircle } from 'lucide-react';
 import { DEFAULT_RISK_CONFIG } from '@self-invest/shared';
 import type { RiskConfig } from '@self-invest/shared';
@@ -27,6 +27,12 @@ export default function RiskParamsForm() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.get('/settings/risk').then(({ data }) => {
+      setValues(data);
+    }).catch(() => {});
+  }, []);
 
   function handleChange(key: keyof RiskConfig, value: number) {
     setValues((prev) => ({ ...prev, [key]: value }));

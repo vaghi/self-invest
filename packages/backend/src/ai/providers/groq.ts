@@ -3,15 +3,15 @@ import type { AIProviderType, AIResponse } from '@self-invest/shared';
 import type { IAIProvider, AIContext } from '../interface.js';
 import { trackError } from '../../services/error-tracker.js';
 
-export class GrokProvider implements IAIProvider {
-  readonly name: AIProviderType = 'grok';
+export class GroqProvider implements IAIProvider {
+  readonly name: AIProviderType = 'groq';
   readonly isLocal = false;
   private client: OpenAI;
 
   constructor(public readonly model: string, apiKey: string) {
     this.client = new OpenAI({
       apiKey,
-      baseURL: 'https://api.x.ai/v1',
+      baseURL: 'https://api.groq.com/openai/v1',
     });
   }
 
@@ -21,6 +21,7 @@ export class GrokProvider implements IAIProvider {
       model: this.model,
       max_tokens: context.maxTokens,
       temperature: context.temperature,
+      response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: context.systemPrompt + '\n\nRespond with valid JSON only.' },
         { role: 'user', content: prompt },
@@ -47,27 +48,21 @@ export class GrokProvider implements IAIProvider {
       await this.client.models.list();
       return true;
     } catch (err) {
-      trackError('ai_provider', err, { provider: 'grok', model: this.model, context: 'health_check' });
+      trackError('ai_provider', err, { provider: 'groq', model: this.model, context: 'health_check' });
       return false;
     }
   }
 
-  estimateCost(inputTokens: number, outputTokens: number): number {
-    const costs: Record<string, { input: number; output: number }> = {
-      'grok-3': { input: 3 / 1_000_000, output: 15 / 1_000_000 },
-      'grok-3-mini': { input: 0.3 / 1_000_000, output: 0.5 / 1_000_000 },
-      'grok-4.20-reasoning': { input: 3 / 1_000_000, output: 15 / 1_000_000 },
-    };
-    const cost = costs[this.model] || costs['grok-3'];
-    return inputTokens * cost.input + outputTokens * cost.output;
+  estimateCost(): number {
+    return 0;
   }
 
   private tryParseJson(content: string): unknown {
     try {
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)```/) || content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) return JSON.parse(jsonMatch[1] || jsonMatch[0]);
-      return null;
+      return JSON.parse(content);
     } catch {
+      const match = content.match(/```json\s*([\s\S]*?)```/) || content.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[1] || match[0]);
       return null;
     }
   }

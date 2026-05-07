@@ -34,3 +34,14 @@ body {
   background: var(--color-surface-700);
   border-radius: 3px;
 }
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

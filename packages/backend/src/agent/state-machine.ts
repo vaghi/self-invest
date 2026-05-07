@@ -4,6 +4,7 @@ import { eventBus } from '../services/event-bus.js';
 
 let currentState: AgentState = 'idle';
 let startedAt: number | null = null;
+let lastError: string | null = null;
 
 const VALID_TRANSITIONS: Record<AgentState, AgentState[]> = {
   idle: ['analyzing', 'paused', 'dead'],
@@ -22,6 +23,10 @@ export function getAgentUptime(): number {
   return startedAt ? Date.now() - startedAt : 0;
 }
 
+export function getLastError(): string | null {
+  return lastError;
+}
+
 export function transitionTo(newState: AgentState, reason?: string): boolean {
   if (currentState === newState) return true;
 
@@ -35,6 +40,13 @@ export function transitionTo(newState: AgentState, reason?: string): boolean {
   logger.info(change, 'Agent state transition');
 
   currentState = newState;
+
+  if (newState === 'error') {
+    lastError = reason || 'Unknown error';
+  }
+  if (newState === 'idle' || newState === 'analyzing') {
+    lastError = null;
+  }
 
   if (newState === 'analyzing' && !startedAt) {
     startedAt = Date.now();

@@ -37,6 +37,8 @@ enum AIProviderType {
   CLAUDE
   OPENAI
   GROK
+  GEMINI
+  GROQ
   OLLAMA
   LMSTUDIO
 }
@@ -180,4 +182,50 @@ model Settings {
   value Json
 
   @@map("settings")
+}
+
+enum ChatMessageRole {
+  USER
+  AGENT
+  SYSTEM
+}
+
+enum MessageClassification {
+  PERSISTENT_RULE
+  ONE_TIME_COMMAND
+  QUESTION
+  ACKNOWLEDGMENT
+}
+
+enum InstructionStatus {
+  ACTIVE
+  DISABLED
+}
+
+model ChatMessage {
+  id              String                 @id @default(uuid())
+  role            ChatMessageRole
+  content         String
+  classification  MessageClassification?
+  metadata        Json?
+  instructionId   String?
+  instruction     UserInstruction?       @relation(fields: [instructionId], references: [id])
+  createdAt       DateTime               @default(now())
+
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+model UserInstruction {
+  id              String            @id @default(uuid())
+  originalMessage String
+  compactRule     String
+  category        String
+  status          InstructionStatus @default(ACTIVE)
+  createdAt       DateTime          @default(now())
+  disabledAt      DateTime?
+  chatMessages    ChatMessage[]
+
+  @@index([status])
+  @@map("user_instructions")
 }

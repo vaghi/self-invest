@@ -11,7 +11,7 @@ import { useState } from 'react';
 
 export default function Dashboard() {
   const { balance, positions, snapshots, fetchBalance, fetchPositions, fetchSnapshots } = usePortfolioStore();
-  const { state, uptime, totalTrades, fetchStatus } = useAgentStore();
+  const { state, uptime, totalTrades, schedulerRunning, fetchStatus } = useAgentStore();
   const [recentTrades, setRecentTrades] = useState<any[]>([]);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function Dashboard() {
         </div>
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
           <h3 className="text-sm font-medium text-gray-400 mb-4">Agent Status</h3>
-          <AgentStatusBadge state={state} uptime={uptime} />
+          <AgentStatusBadge state={state} uptime={uptime} schedulerRunning={schedulerRunning} />
           <div className="mt-4 text-sm text-gray-400">
             Total trades executed: <span className="text-gray-200">{totalTrades}</span>
           </div>

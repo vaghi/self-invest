@@ -19,6 +19,7 @@ export type WSEventType =
   | 'analysis_update'
   | 'price_update'
   | 'agent_death'
+  | 'chat_message'
   | 'error';
 
 export interface WSEvent<T = unknown> {

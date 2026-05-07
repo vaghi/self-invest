@@ -44,8 +44,10 @@ echo "PostgreSQL is ready."
 echo ""
 echo "Running database migrations..."
 cd packages/backend
+cp ../../.env .env
 npx prisma generate
 npx prisma db push
+rm .env
 cd ../..
 
 echo ""

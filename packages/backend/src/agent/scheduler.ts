@@ -6,6 +6,7 @@ import { env } from '../config/env.js';
 
 let task: cron.ScheduledTask | null = null;
 let running = false;
+let currentInterval = env.agentAnalysisIntervalMinutes;
 
 export function startAgent(): boolean {
   if (isDead()) {
@@ -18,8 +19,7 @@ export function startAgent(): boolean {
     return false;
   }
 
-  const interval = env.agentAnalysisIntervalMinutes;
-  const cronExpression = `*/${interval} * * * *`;
+  const cronExpression = `*/${currentInterval} * * * *`;
 
   task = cron.schedule(cronExpression, async () => {
     if (running || isDead()) return;
@@ -34,7 +34,7 @@ export function startAgent(): boolean {
   });
 
   transitionTo('idle');
-  logger.info({ interval }, 'Agent started');
+  logger.info({ interval: currentInterval }, 'Agent started');
   return true;
 }
 
@@ -80,11 +80,22 @@ export async function triggerAnalysis(): Promise<void> {
   }
 }
 
+export function setAnalysisInterval(minutes: number): void {
+  if (minutes < 1 || minutes > 60) throw new Error('Interval must be between 1 and 60 minutes');
+  currentInterval = minutes;
+  if (task) {
+    task.stop();
+    task = null;
+    startAgent();
+    logger.info({ interval: minutes }, 'Agent restarted with new interval');
+  }
+}
+
 export function getSchedulerStatus() {
   return {
     running: task !== null,
     agentState: getAgentState(),
-    intervalMinutes: env.agentAnalysisIntervalMinutes,
+    intervalMinutes: currentInterval,
     pipelineRunning: running,
   };
 }

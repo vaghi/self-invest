@@ -4,6 +4,7 @@ import type {
 } from '@self-invest/shared';
 import type { IBrokerAdapter } from '../interface.js';
 import { logger } from '../../config/logger.js';
+import { trackError } from '../../services/error-tracker.js';
 
 const TIMEFRAME_MAP: Record<Timeframe, string> = {
   '1min': '1Min', '5min': '5Min', '15min': '15Min',
@@ -35,15 +36,24 @@ export class AlpacaAdapter implements IBrokerAdapter {
   }
 
   private async request<T>(url: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(url, {
-      ...options,
-      headers: { ...this.headers, ...options?.headers },
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Alpaca API error ${response.status}: ${body}`);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: { ...this.headers, ...options?.headers },
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        const err = new Error(`Alpaca API error ${response.status}: ${body}`);
+        trackError('broker_request', err, { url, status: response.status });
+        throw err;
+      }
+      return response.json() as Promise<T>;
+    } catch (err) {
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        trackError('broker_connection', err, { url });
+      }
+      throw err;
     }
-    return response.json() as Promise<T>;
   }
 
   async connect(apiKey: string, apiSecret: string, paper: boolean): Promise<void> {
@@ -193,7 +203,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
   }
 
   async getQuote(symbol: string): Promise<Quote> {
-    const q = await this.request<any>(`${this.dataUrl}/v2/stocks/${symbol}/quotes/latest`);
+    const q = await this.request<any>(`${this.dataUrl}/v2/stocks/${symbol}/quotes/latest?feed=iex`);
     const quote = q.quote;
     return {
       symbol,
@@ -212,6 +222,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
       end: end.toISOString(),
       timeframe: tf,
       limit: '1000',
+      feed: 'iex',
     });
     const result = await this.request<any>(`${this.dataUrl}/v2/stocks/${symbol}/bars?${params}`);
     return (result.bars || []).map((b: any) => ({

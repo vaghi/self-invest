@@ -9,6 +9,8 @@ import { tradesRouter } from './routes/trades.js';
 import { marketDataRouter } from './routes/market-data.js';
 import { agentRouter } from './routes/ai-agent.js';
 import { settingsRouter } from './routes/settings.js';
+import { logsRouter } from './routes/logs.js';
+import { chatRouter } from './routes/chat.js';
 
 export function createApp() {
   const app = express();
@@ -27,6 +29,8 @@ export function createApp() {
   app.use('/api/market', marketDataRouter);
   app.use('/api/agent', agentRouter);
   app.use('/api/settings', settingsRouter);
+  app.use('/api/logs', logsRouter);
+  app.use('/api/chat', chatRouter);
 
   app.use(errorHandler);
 

@@ -6,7 +6,7 @@ import DeathScreen from '../components/agent/DeathScreen';
 import { AgentStatusBadge } from '../components/dashboard/AgentStatusBadge';
 
 export default function AgentView() {
-  const { state, uptime, totalTrades, analyses, fetchStatus, fetchAnalyses } = useAgentStore();
+  const { state, uptime, totalTrades, schedulerRunning, analyses, fetchStatus, fetchAnalyses } = useAgentStore();
 
   useEffect(() => {
     fetchStatus();
@@ -34,7 +34,7 @@ export default function AgentView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
           <h3 className="text-sm font-medium text-gray-400 mb-4">Agent State</h3>
-          <AgentStatusBadge state={state} uptime={uptime} />
+          <AgentStatusBadge state={state} uptime={uptime} schedulerRunning={schedulerRunning} />
         </div>
         <div className="lg:col-span-2 bg-gray-900 rounded-xl p-6 border border-gray-800">
           <h3 className="text-sm font-medium text-gray-400 mb-4">Controls</h3>

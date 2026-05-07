@@ -69,3 +69,7 @@ export const aiProviderConfigSchema = z.object({
   maxTokens: z.number().min(100).max(128000).default(4096),
   temperature: z.number().min(0).max(2).default(0.2),
 });
+
+export const chatSendRequestSchema = z.object({
+  message: z.string().min(1).max(2000),
+});

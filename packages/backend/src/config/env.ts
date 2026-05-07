@@ -19,7 +19,7 @@ const envSchema = z.object({
   OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
   LMSTUDIO_BASE_URL: z.string().default('http://localhost:1234'),
   AGENT_ENABLED: z.string().default('false'),
-  AGENT_ANALYSIS_INTERVAL_MINUTES: z.string().default('5'),
+  AGENT_ANALYSIS_INTERVAL_MINUTES: z.string().default('2'),
   AGENT_MAX_DAILY_AI_COST_USD: z.string().default('10'),
 });
 
