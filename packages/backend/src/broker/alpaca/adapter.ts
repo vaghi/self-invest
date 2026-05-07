@@ -194,7 +194,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
   async getOrders(status?: string): Promise<Order[]> {
     const params = status ? `?status=${status}` : '';
     const orders = await this.request<any[]>(`${this.baseUrl}/v2/orders${params}`);
-    return orders.map(this.mapOrder);
+    return orders.map((o) => this.mapOrder(o));
   }
 
   async getOrder(orderId: string): Promise<Order> {

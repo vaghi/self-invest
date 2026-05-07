@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle, Menu } from 'lucide-react';
 import type { AgentState } from '@self-invest/shared';
 import { useAgentStore } from '../../stores/agent.store';
 import { useSettingsStore } from '../../stores/settings.store';
 
 interface HeaderProps {
   title: string;
+  onMenuToggle: () => void;
 }
 
 function getDisplayState(state: AgentState, schedulerRunning: boolean): { label: string; color: string; pulse: boolean } {
@@ -27,7 +28,7 @@ function getDisplayState(state: AgentState, schedulerRunning: boolean): { label:
   return { label: 'Idle', color: 'bg-gray-500', pulse: false };
 }
 
-export default function Header({ title }: HeaderProps) {
+export default function Header({ title, onMenuToggle }: HeaderProps) {
   const agentState = useAgentStore((s) => s.state);
   const schedulerRunning = useAgentStore((s) => s.schedulerRunning);
   const lastError = useAgentStore((s) => s.lastError);
@@ -46,8 +47,13 @@ export default function Header({ title }: HeaderProps) {
           </div>
         )}
 
-        <div className="flex items-center justify-between border-b border-surface-800 bg-surface-900/80 px-6 py-4 backdrop-blur-sm">
-          <h1 className="text-lg font-semibold text-white">{title}</h1>
+        <div className="flex items-center justify-between border-b border-surface-800 bg-surface-900/80 px-4 md:px-6 py-4 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <button onClick={onMenuToggle} className="lg:hidden text-gray-400 hover:text-gray-200">
+              <Menu className="h-5 w-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-white">{title}</h1>
+          </div>
 
           {/* Agent status badge */}
           <button

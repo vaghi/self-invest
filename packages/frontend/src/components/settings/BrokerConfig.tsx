@@ -3,7 +3,7 @@ import { Plug, Unplug, Loader2 } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settings.store';
 
 export default function BrokerConfig() {
-  const { brokerConnected, isPaperTrading, connectBroker, disconnectBroker, loading, brokerError: error } =
+  const { brokerConnected, isPaperTrading, connectBroker, disconnectBroker, loading, initialLoading, brokerError: error } =
     useSettingsStore();
 
   const [apiKey, setApiKey] = useState('');
@@ -30,22 +30,33 @@ export default function BrokerConfig() {
 
       {/* Connection status indicator */}
       <div className="flex items-center gap-2">
-        <span
-          className={`h-2.5 w-2.5 rounded-full ${
-            brokerConnected
-              ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]'
-              : 'bg-red-500'
-          }`}
-        />
-        <span
-          className={`text-sm font-medium ${
-            brokerConnected ? 'text-green-400' : 'text-red-400'
-          }`}
-        >
-          {brokerConnected
-            ? `Connected${isPaperTrading ? ' (Paper)' : ' (Live)'}`
-            : 'Disconnected'}
-        </span>
+        {initialLoading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+            <span className="text-sm font-medium text-gray-400">
+              Checking connection...
+            </span>
+          </>
+        ) : (
+          <>
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                brokerConnected
+                  ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]'
+                  : 'bg-red-500'
+              }`}
+            />
+            <span
+              className={`text-sm font-medium ${
+                brokerConnected ? 'text-green-400' : 'text-red-400'
+              }`}
+            >
+              {brokerConnected
+                ? `Connected${isPaperTrading ? ' (Paper)' : ' (Live)'}`
+                : 'Disconnected'}
+            </span>
+          </>
+        )}
       </div>
 
       {!brokerConnected && (

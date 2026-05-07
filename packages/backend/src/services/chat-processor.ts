@@ -171,6 +171,21 @@ async function executeOneTimeCommand(
       stopLossPrice: command.side === 'buy' ? stopLoss : undefined,
     });
 
+    const dbTrade = await prisma.trade.create({
+      data: {
+        symbol: command.symbol,
+        side: command.side.toUpperCase() as any,
+        quantity,
+        price: String(price),
+        totalCost: (parseFloat(quantity) * price).toFixed(2),
+        status: 'PENDING',
+        orderType: command.orderType.toUpperCase() as any,
+        isPaper: broker.isPaperTrading(),
+      },
+    });
+
+    eventBus.emit('trade_executed', dbTrade);
+
     return { symbol: command.symbol, side: command.side, status: 'submitted' };
   } catch (err: any) {
     trackError('trade_execution', err, { context: 'chat_command', symbol: command.symbol });

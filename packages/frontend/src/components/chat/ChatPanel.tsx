@@ -23,7 +23,7 @@ export function ChatPanel() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 right-6 z-[9998] w-96 h-[600px] bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[slideIn_0.2s_ease-out]">
+    <div className="fixed bottom-24 right-4 left-4 sm:left-auto sm:right-6 z-[9998] sm:w-96 h-[70vh] sm:h-[600px] bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[slideIn_0.2s_ease-out]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/80">
         <h3 className="text-sm font-semibold text-gray-100">Agent Chat</h3>

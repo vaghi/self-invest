@@ -8,6 +8,7 @@ interface SettingsState {
   brokerConnected: boolean;
   isPaperTrading: boolean;
   loading: boolean;
+  initialLoading: boolean;
   aiError: string | null;
   brokerError: string | null;
   fetchSettings: () => Promise<void>;
@@ -21,10 +22,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   brokerConnected: false,
   isPaperTrading: true,
   loading: false,
+  initialLoading: true,
   aiError: null,
   brokerError: null,
 
   fetchSettings: async () => {
+    set({ initialLoading: true });
     try {
       const [aiRes, brokerRes] = await Promise.all([
         api.get('/settings/ai-provider'),
@@ -34,8 +37,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         aiProvider: aiRes.data.active,
         brokerConnected: brokerRes.data.connected,
         isPaperTrading: brokerRes.data.isPaperTrading ?? true,
+        initialLoading: false,
       });
-    } catch {}
+    } catch {
+      set({ initialLoading: false });
+    }
   },
 
   setAIProvider: async (type, model, apiKey?) => {

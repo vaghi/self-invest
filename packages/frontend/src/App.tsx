@@ -27,6 +27,8 @@ const queryClient = new QueryClient({
 function WebSocketManager() {
   const updateBalance = usePortfolioStore((s) => s.updateBalance);
   const updatePosition = usePortfolioStore((s) => s.updatePosition);
+  const fetchBalance = usePortfolioStore((s) => s.fetchBalance);
+  const fetchPositions = usePortfolioStore((s) => s.fetchPositions);
   const setAgentState = useAgentStore((s) => s.setState);
   const addChatMessage = useChatStore((s) => s.addMessage);
 
@@ -56,6 +58,10 @@ function WebSocketManager() {
           break;
         case 'error':
           showError('Error', (event.data as any).message || 'An unexpected error occurred');
+          break;
+        case 'trade_executed':
+          fetchBalance();
+          fetchPositions();
           break;
         case 'chat_message':
           addChatMessage(event.data as any);

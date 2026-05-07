@@ -226,9 +226,10 @@ export async function runPipeline(): Promise<void> {
 
     transitionTo('idle');
   } catch (err) {
-    trackError('agent_pipeline', err);
     const message = err instanceof Error ? err.message : String(err);
-    transitionTo('error', message);
+    const friendlyMessage = classifyPipelineError(message, err);
+    trackError('agent_pipeline', err);
+    transitionTo('error', friendlyMessage);
   }
 }
 
@@ -434,4 +435,50 @@ async function handleDeath(balance: Balance, positions: Position[]): Promise<voi
     lifespan: 0,
     reason: 'Balance depleted to zero',
   });
+}
+
+function classifyPipelineError(message: string, err: unknown): string {
+  const stack = err instanceof Error ? err.stack || '' : '';
+  const lower = message.toLowerCase();
+
+  if (lower.includes('fetch failed') || lower.includes('econnrefused') || lower.includes('etimedout') || lower.includes('enotfound')) {
+    if (stack.includes('alpaca') || stack.includes('broker') || message.includes('alpaca')) {
+      return `[Broker] Cannot reach Alpaca API — check your internet connection or Alpaca may be experiencing an outage.`;
+    }
+    if (stack.includes('ollama') || stack.includes('localhost:11434')) {
+      return `[AI Provider] Cannot reach Ollama — is it running? Start it with: ollama serve`;
+    }
+    if (stack.includes('lmstudio') || stack.includes('localhost:1234')) {
+      return `[AI Provider] Cannot reach LM Studio — is the server running?`;
+    }
+    if (stack.includes('openai') || stack.includes('anthropic') || stack.includes('x.ai') || stack.includes('groq') || stack.includes('googleapis')) {
+      return `[AI Provider] Cannot reach the AI service — check your internet connection.`;
+    }
+    return `[Network] Connection failed — check your internet connection.`;
+  }
+
+  if (lower.includes('api key') || lower.includes('unauthorized') || lower.includes('401') || lower.includes('403')) {
+    if (stack.includes('alpaca') || stack.includes('broker')) {
+      return `[Broker] Authentication failed — your Alpaca API keys may be invalid or expired. Reconnect in Settings.`;
+    }
+    return `[AI Provider] Authentication failed — your API key may be invalid or expired. Update it in Settings.`;
+  }
+
+  if (lower.includes('rate limit') || lower.includes('429')) {
+    return `[AI Provider] Rate limited — too many requests. The agent will retry on the next cycle.`;
+  }
+
+  if (lower.includes('model') && lower.includes('not found')) {
+    return `[AI Provider] Model not found — the selected model may not be available. Check Settings.`;
+  }
+
+  if (lower.includes('no ai provider')) {
+    return `[AI Provider] No AI provider configured — go to Settings and connect one.`;
+  }
+
+  if (lower.includes('no broker')) {
+    return `[Broker] No broker connected — go to Settings and connect your Alpaca API keys.`;
+  }
+
+  return `[Agent] ${message}`;
 }
