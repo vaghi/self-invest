@@ -40,32 +40,35 @@ export default function Header({ title, onMenuToggle }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-20">
+      <header id="main-header" className="sticky top-0 z-20">
         {isPaperTrading && (
           <div className="bg-yellow-500/90 px-4 py-1 text-center text-xs font-medium text-yellow-950">
             Paper Trading Mode -- No real money is being used
           </div>
         )}
 
-        <div className="flex items-center justify-between border-b border-surface-800 bg-surface-900/80 px-4 md:px-6 py-4 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            <button onClick={onMenuToggle} className="lg:hidden text-gray-400 hover:text-gray-200">
+        <div className="flex items-center justify-between gap-2 flex-wrap border-b border-surface-800 bg-surface-900/80 px-4 md:px-6 py-4 backdrop-blur-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={onMenuToggle} aria-label="Toggle menu" aria-expanded={false} className="lg:hidden text-gray-400 hover:text-gray-200">
               <Menu className="h-5 w-5" />
             </button>
-            <h1 className="text-lg font-semibold text-white">{title}</h1>
+            <h1 className="text-lg font-semibold text-white truncate">{title}</h1>
           </div>
 
           {/* Agent status badge */}
           <button
             onClick={() => { if (isClickable) setShowErrorModal(true); }}
-            className={`flex items-center gap-2 rounded-full border border-surface-700 bg-surface-800 px-3 py-1.5 text-xs font-medium text-gray-300 ${
+            role="status"
+            aria-live="polite"
+            aria-label={`Agent status: ${display.label}`}
+            className={`flex items-center gap-2 rounded-full border border-surface-700 bg-surface-800 px-3 py-1.5 text-xs font-medium text-gray-300 shrink-0 ${
               isClickable ? 'cursor-pointer hover:border-red-500/50 hover:bg-red-950/30' : 'cursor-default'
             }`}
           >
             <span
               className={`h-2 w-2 rounded-full ${display.color} ${display.pulse ? 'animate-pulse' : ''}`}
             />
-            Agent: {display.label}
+            <span className="hidden sm:inline">Agent: </span>{display.label}
             {isClickable && <AlertCircle className="h-3 w-3 text-red-400 ml-1" />}
           </button>
         </div>
@@ -73,14 +76,14 @@ export default function Header({ title, onMenuToggle }: HeaderProps) {
 
       {/* Error Modal */}
       {showErrorModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-red-500/30 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Agent error details">
+          <div className="bg-gray-900 border border-red-500/30 rounded-2xl p-4 sm:p-6 max-w-lg w-full mx-4 shadow-2xl">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-6 w-6 text-red-400" />
                 <h3 className="text-lg font-semibold text-red-100">Agent Error</h3>
               </div>
-              <button onClick={() => setShowErrorModal(false)} className="text-gray-400 hover:text-gray-200">
+              <button onClick={() => setShowErrorModal(false)} aria-label="Close error dialog" className="text-gray-400 hover:text-gray-200">
                 <X className="h-5 w-5" />
               </button>
             </div>

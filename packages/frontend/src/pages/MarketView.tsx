@@ -154,7 +154,7 @@ export default function MarketView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div id="market-page" className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
           {/* Watchlist header with search */}
@@ -170,6 +170,7 @@ export default function MarketView() {
                 }
               }}
               className="text-gray-400 hover:text-brand-400 transition"
+              aria-label={showSearch ? 'Close search' : 'Search stocks'}
               title="Add stock to watchlist"
             >
               {showSearch ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
@@ -244,6 +245,7 @@ export default function MarketView() {
                 onClick={() => removeFromWatchlist(selectedSymbol)}
                 disabled={watchlist.length <= 1}
                 className="text-gray-500 hover:text-red-400 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Remove from watchlist"
                 title="Remove from watchlist"
               >
                 <Trash2 className="h-4 w-4" />

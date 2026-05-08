@@ -12,7 +12,7 @@ export default function Positions() {
   }, []);
 
   if (loading && positions.length === 0) {
-    return <div className="text-gray-400 text-center py-12">Loading positions...</div>;
+    return <div className="text-gray-400 text-center py-12" role="status">Loading positions...</div>;
   }
 
   if (positions.length === 0) {
@@ -25,7 +25,8 @@ export default function Positions() {
   }
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+    <div id="positions-page" className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+      <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-800 text-gray-400 text-sm">
@@ -68,6 +69,7 @@ export default function Positions() {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

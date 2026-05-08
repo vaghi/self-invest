@@ -48,6 +48,9 @@ export function AgentStatusBadge({ state, uptime, schedulerRunning = false }: Ag
 
   return (
     <span
+      role="status"
+      aria-live="polite"
+      aria-label={`Agent status: ${getLabel(state, scheduled)}`}
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium text-gray-100 ${getBadgeBg(state, scheduled)}`}
     >
       <span className={`h-2 w-2 rounded-full ${getDotClasses(state, scheduled)}`} />

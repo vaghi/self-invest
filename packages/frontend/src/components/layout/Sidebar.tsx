@@ -49,7 +49,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onClose} />
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-surface-950 border-r border-surface-800 transition-transform duration-200 lg:translate-x-0 ${
+      <aside id="sidebar" aria-label="Main sidebar" className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-surface-950 border-r border-surface-800 transition-transform duration-200 lg:translate-x-0 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         {/* Logo */}
@@ -60,13 +60,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               Self-Invest
             </span>
           </div>
-          <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-gray-200">
+          <button onClick={onClose} aria-label="Close sidebar" className="lg:hidden text-gray-400 hover:text-gray-200">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav id="sidebar-nav" role="navigation" aria-label="Main navigation" className="flex-1 space-y-1 px-3 py-4">
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -103,6 +103,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             {brokerConnected && (
               <button
                 onClick={handleRefresh}
+                aria-label="Refresh data"
                 className="text-gray-500 hover:text-brand-400 transition"
                 title="Refresh data"
               >

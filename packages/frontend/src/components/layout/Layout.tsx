@@ -18,13 +18,13 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-surface-950 text-gray-100">
+    <div className="flex min-h-screen bg-surface-950 text-gray-100 overflow-x-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex flex-1 flex-col lg:pl-64">
+      <div className="flex flex-1 flex-col lg:pl-64 max-w-full">
         <Header title={title} onMenuToggle={() => setSidebarOpen(true)} />
 
-        <main className="flex-1 p-4 md:p-6">
+        <main role="main" className="flex-1 p-4 md:p-6 overflow-x-hidden">
           <Outlet />
         </main>
       </div>

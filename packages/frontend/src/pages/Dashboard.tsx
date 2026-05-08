@@ -31,12 +31,12 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div id="dashboard-page" className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <BalanceCard balance={balance} />
         </div>
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-800">
           <h3 className="text-sm font-medium text-gray-400 mb-4">Agent Status</h3>
           <AgentStatusBadge state={state} uptime={uptime} schedulerRunning={schedulerRunning} />
           <div className="mt-4 text-sm text-gray-400">
@@ -46,11 +46,11 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-gray-900 rounded-xl p-6 border border-gray-800">
+        <div className="lg:col-span-2 bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-800">
           <h3 className="text-sm font-medium text-gray-400 mb-4">Equity Curve</h3>
           <PnLChart data={snapshots} />
         </div>
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-800">
           <h3 className="text-sm font-medium text-gray-400 mb-4">Allocation</h3>
           <PortfolioDonut
             positions={positions.map((p) => ({ symbol: p.symbol, marketValue: p.marketValue }))}
@@ -59,7 +59,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+      <div className="bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-800">
         <h3 className="text-sm font-medium text-gray-400 mb-4">Recent Trades</h3>
         <RecentTrades trades={recentTrades} />
       </div>

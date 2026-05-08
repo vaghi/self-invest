@@ -39,7 +39,7 @@ export default function TradeHistory() {
   }
 
   return (
-    <div className="space-y-4">
+    <div id="trade-history-page" className="space-y-4">
       <div className="flex items-center gap-4">
         <input
           type="text"
@@ -52,10 +52,11 @@ export default function TradeHistory() {
 
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
         {loading ? (
-          <div className="text-gray-400 text-center py-12">Loading trades...</div>
+          <div className="text-gray-400 text-center py-12" role="status">Loading trades...</div>
         ) : trades.length === 0 ? (
           <div className="text-gray-400 text-center py-12">No trades found</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-800 text-gray-400 text-sm">
@@ -104,6 +105,7 @@ export default function TradeHistory() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

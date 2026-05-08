@@ -23,11 +23,11 @@ export function ChatPanel() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 right-4 left-4 sm:left-auto sm:right-6 z-[9998] sm:w-96 h-[70vh] sm:h-[600px] bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[slideIn_0.2s_ease-out]">
+    <div id="chat-panel" role="dialog" aria-modal="false" aria-label="Agent chat panel" className="fixed bottom-24 right-4 left-4 sm:left-auto sm:right-6 z-[9998] sm:w-96 h-[70vh] sm:h-[600px] bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[slideIn_0.2s_ease-out]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/80">
         <h3 className="text-sm font-semibold text-gray-100">Agent Chat</h3>
-        <button onClick={close} className="text-gray-500 hover:text-gray-300 transition">
+        <button onClick={close} aria-label="Close chat panel" className="text-gray-500 hover:text-gray-300 transition">
           <X className="h-4 w-4" />
         </button>
       </div>

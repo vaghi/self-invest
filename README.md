@@ -10,7 +10,7 @@ The agent operates under a single rule: **stay alive**. If the portfolio balance
 
 ### The Trading Loop
 
-Every 5 minutes during market hours, the agent runs an autonomous pipeline:
+Every 1-5 minutes (configurable) during market hours, the agent runs an autonomous pipeline:
 
 1. **Gather** — Pulls current portfolio state, market prices, technical indicators (RSI, MACD, Bollinger Bands, SMAs), financial news, and sentiment data for all watched symbols and held positions.
 
@@ -29,13 +29,17 @@ Every 5 minutes during market hours, the agent runs an autonomous pipeline:
 The AI brain is interchangeable. Switch between providers at any time without restarting:
 
 **Cloud providers:**
-- **Claude** (Anthropic) — Default recommendation. Best structured output reliability and reasoning quality for financial analysis. Sonnet for frequent calls, Opus for major decisions.
+- **Claude** (Anthropic) — Best structured output reliability and reasoning quality for financial analysis.
 - **OpenAI GPT-4o** — Strong alternative with native JSON mode.
 - **Grok** (xAI) — Real-time X/Twitter data integration for sentiment edge.
+- **Gemini** (Google) — Free tier with generous limits. No credit card required.
+- **Groq Cloud** — Free tier with fast inference on Llama and Mixtral models. No credit card required.
 
 **Local providers (free, private):**
-- **Ollama** — Run Mistral Nemo, Llama 3.1, Mixtral, or any supported model locally. Zero cost, full privacy.
+- **Ollama** — Run Llama, Mistral, Phi, or any supported model locally. Zero cost, full privacy.
 - **LM Studio** — OpenAI-compatible local inference server. Use any GGUF model.
+
+**Custom providers** — Add any OpenAI-compatible provider via the Settings UI with a custom base URL and model name.
 
 All providers implement the same interface. The agent doesn't care where the intelligence comes from — it sends market data and receives structured trade decisions.
 
@@ -81,7 +85,7 @@ All trades are tagged in the database with their mode, so paper and live histori
 
 ## The Frontend
 
-Six pages provide full visibility into the agent's operation:
+Seven pages provide full visibility into the agent's operation:
 
 - **Dashboard** — Portfolio value, equity curve, asset allocation donut, daily P&L, agent status indicator, and recent trades at a glance.
 
@@ -89,11 +93,21 @@ Six pages provide full visibility into the agent's operation:
 
 - **Trade History** — Searchable, filterable log of every trade with status, cost, and linked AI reasoning explaining why the trade was made.
 
-- **Agent** — The brain view. Shows agent state (idle/analyzing/trading/paused/dead), start/stop/pause controls, manual "Analyze Now" trigger, and a scrollable reasoning log showing every AI analysis with confidence scores, token usage, and cost.
+- **Agent** — The brain view. Shows agent state (idle/running/analyzing/trading/paused/dead/error), start/stop/pause controls, manual "Analyze Now" trigger, and a scrollable reasoning log showing every AI analysis with confidence scores, token usage, and cost. Clickable error status shows detailed error information.
 
-- **Market** — Interactive candlestick charts with TradingView, watchlist with live prices, symbol selector.
+- **Market** — Interactive candlestick charts with TradingView, dynamic watchlist with add/remove stocks via predictive search.
 
-- **Settings** — Broker connection (API keys, paper/live toggle), AI provider selector (type + model + API key), and risk parameter configuration with sliders.
+- **Settings** — Broker connection, AI provider selector (with custom provider/model support), analysis interval configuration (1-60 minutes), and risk parameter sliders.
+
+### AI Chat
+
+A floating chat button (bottom-right) opens a side panel where you can give the agent natural language instructions:
+
+- **Persistent rules** — "Never buy Tesla", "Focus on cheap high-growth stocks", "Keep at least 30% cash" — stored as active instructions that are injected into every future trading cycle.
+- **One-time commands** — "Buy 10 shares of NVDA", "Sell all my AAPL" — executed immediately through the same risk validation as pipeline trades.
+- **Questions** — "What's my portfolio?", "Why did you buy NVDA?" — answered from current portfolio and analysis context.
+
+Active instructions can be viewed, toggled, or deleted from the Instructions tab within the chat panel.
 
 When the agent dies (balance reaches zero), a full-screen death overlay displays final statistics.
 
@@ -106,7 +120,7 @@ When the agent dies (balance reaches zero), a full-screen death overlay displays
 - Node.js 20+
 - Docker (for PostgreSQL and Redis)
 - An Alpaca Markets account (free signup at alpaca.markets)
-- At least one AI provider: an API key (Anthropic, OpenAI, or xAI) OR Ollama installed locally
+- At least one AI provider: a free API key (Gemini, Groq), a paid key (Anthropic, OpenAI), or Ollama installed locally
 
 ### Setup
 
@@ -179,7 +193,7 @@ Opens the backend on port 3001 and frontend on port 5173. Navigate to **http://l
 |-------|-------------|
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, Zustand, TanStack Query, Recharts, TradingView Lightweight Charts |
 | Backend | Node.js, Express, TypeScript, WebSocket (ws), node-cron |
-| AI | Anthropic SDK, OpenAI SDK (also used for Grok and LM Studio), Ollama HTTP API |
+| AI | Anthropic SDK, OpenAI SDK (also used for Grok, Gemini, Groq, and LM Studio), Ollama HTTP API |
 | Database | PostgreSQL 16 (Prisma ORM), Redis 7 |
 | Broker | Alpaca Markets REST + WebSocket API |
 | Infrastructure | Docker Compose, npm workspaces monorepo |

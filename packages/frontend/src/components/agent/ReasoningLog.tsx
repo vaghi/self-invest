@@ -67,7 +67,7 @@ function LogEntry({ analysis }: { analysis: AIAnalysis }) {
       {/* Header row */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-800 transition"
+        className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 text-left hover:bg-surface-800 transition overflow-x-auto"
       >
         {expanded ? (
           <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
@@ -100,7 +100,7 @@ function LogEntry({ analysis }: { analysis: AIAnalysis }) {
 
       {/* Expanded reasoning */}
       {expanded && (
-        <div className="border-t border-surface-700 px-4 py-3 space-y-3">
+        <div className="border-t border-surface-700 px-3 sm:px-4 py-3 space-y-3">
           {/* Reasoning */}
           <div className="flex items-start gap-2">
             <Brain className="h-4 w-4 text-brand-400 mt-0.5 shrink-0" />
@@ -110,7 +110,7 @@ function LogEntry({ analysis }: { analysis: AIAnalysis }) {
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-4 pt-1 border-t border-surface-700">
+          <div className="flex items-center gap-4 pt-1 border-t border-surface-700 flex-wrap">
             <div className="flex items-center gap-1.5 text-xs text-gray-500">
               <Coins className="h-3.5 w-3.5" />
               <span>
@@ -137,7 +137,7 @@ function LogEntry({ analysis }: { analysis: AIAnalysis }) {
 
 export default function ReasoningLog({ analyses }: ReasoningLogProps) {
   return (
-    <div className="rounded-xl bg-surface-800 border border-surface-700 p-5 flex flex-col">
+    <div className="rounded-xl bg-surface-800 border border-surface-700 p-3 sm:p-5 flex flex-col">
       <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
         AI Reasoning Log
       </h3>
