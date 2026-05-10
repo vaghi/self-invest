@@ -13,9 +13,11 @@ import { parseMarketAnalysis, parseTradeDecision } from '../ai/response-parser.j
 import { validateTrade, checkDeathCondition } from '../risk/manager.js';
 import { calculateIndicators } from '../market-data/indicators/technical.js';
 import { transitionTo, isDead } from './state-machine.js';
+import { isMarketOpen } from './market-hours.js';
 import { prisma } from '../db/client.js';
 import { eventBus } from '../services/event-bus.js';
 import { logger } from '../config/logger.js';
+import { env } from '../config/env.js';
 import { trackError } from '../services/error-tracker.js';
 import { getActiveInstructionsBlock } from '../services/chat-processor.js';
 
@@ -26,6 +28,23 @@ const WATCHLIST_FULL = [
 ];
 const WATCHLIST_COMPACT = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'SPY', 'AMD', 'META'];
 const MAX_RETRIES = 3;
+
+async function getCustomWatchlist(): Promise<{ add: string[]; remove: string[] }> {
+  const instructions = await prisma.userInstruction.findMany({
+    where: { status: 'ACTIVE', category: 'watchlist' },
+  });
+  const add: string[] = [];
+  const remove: string[] = [];
+  for (const inst of instructions) {
+    const rule = inst.compactRule.toUpperCase();
+    if (rule.startsWith('ADD:')) {
+      add.push(...rule.replace('ADD:', '').trim().split(/[\s,]+/).filter(Boolean));
+    } else if (rule.startsWith('REMOVE:')) {
+      remove.push(...rule.replace('REMOVE:', '').trim().split(/[\s,]+/).filter(Boolean));
+    }
+  }
+  return { add, remove };
+}
 
 export async function runPipeline(): Promise<void> {
   if (isDead()) {
@@ -54,7 +73,9 @@ export async function runPipeline(): Promise<void> {
 
     const heldSymbols = positions.map((p) => p.symbol);
     const baseWatchlist = ai.isLocal ? WATCHLIST_COMPACT : WATCHLIST_FULL;
-    const watchlist = [...new Set([...baseWatchlist, ...heldSymbols])];
+    const custom = await getCustomWatchlist();
+    const watchlist = [...new Set([...baseWatchlist, ...heldSymbols, ...custom.add])]
+      .filter((s) => !custom.remove.includes(s));
 
     const [marketData, instructionsBlock] = await Promise.all([
       gatherMarketData(watchlist),
@@ -70,6 +91,8 @@ export async function runPipeline(): Promise<void> {
         temperature: 0.2,
       });
 
+      const parsed = parseMarketAnalysis(response.content);
+
       await prisma.aIAnalysis.create({
         data: {
           provider: response.provider.toUpperCase() as any,
@@ -78,15 +101,15 @@ export async function runPipeline(): Promise<void> {
           inputData: { watchlist, positionCount: positions.length },
           outputData: response.parsed || {},
           reasoning: response.content.slice(0, 2000),
-          confidence: 0,
+          confidence: parsed ? parsed.overallConfidence : 0,
           tokensUsed: response.tokensUsed,
           latencyMs: response.latencyMs,
           costUsd: ai.estimateCost(response.tokensUsed.input, response.tokensUsed.output).toFixed(6),
         },
       });
 
-      analysis = parseMarketAnalysis(response.content);
-      if (analysis) {
+      if (parsed) {
+        analysis = parsed;
         eventBus.emit('analysis_update', analysis);
         break;
       }
@@ -100,9 +123,14 @@ export async function runPipeline(): Promise<void> {
     }
 
     if (analysis.bullishSymbols.length === 0 && analysis.bearishSymbols.length === 0) {
-      logger.info('No trading opportunities found');
-      transitionTo('idle');
-      return;
+      if (env.agentForceTradeMode) {
+        logger.info('No signals from analysis, but force-trade mode active — proceeding to decision stage');
+        analysis.marketSentiment = analysis.marketSentiment || 'neutral';
+      } else {
+        logger.info('No trading opportunities found');
+        transitionTo('idle');
+        return;
+      }
     }
 
     transitionTo('trading');
@@ -124,6 +152,11 @@ export async function runPipeline(): Promise<void> {
         temperature: 0.1,
       });
 
+      const parsed = parseTradeDecision(response.content);
+      const avgConfidence = parsed && parsed.trades.length > 0
+        ? parsed.trades.reduce((sum, t) => sum + (t.confidence || 0), 0) / parsed.trades.length
+        : 0;
+
       await prisma.aIAnalysis.create({
         data: {
           provider: response.provider.toUpperCase() as any,
@@ -132,15 +165,17 @@ export async function runPipeline(): Promise<void> {
           inputData: { analysisResult: analysis } as any,
           outputData: (response.parsed || {}) as any,
           reasoning: response.content.slice(0, 2000),
-          confidence: 0,
+          confidence: avgConfidence,
           tokensUsed: response.tokensUsed,
           latencyMs: response.latencyMs,
           costUsd: ai.estimateCost(response.tokensUsed.input, response.tokensUsed.output).toFixed(6),
         },
       });
 
-      decision = parseTradeDecision(response.content);
-      if (decision) break;
+      if (parsed) {
+        decision = parsed;
+        break;
+      }
       logger.warn({ attempt }, 'Failed to parse trade decision, retrying');
     }
 
@@ -299,7 +334,8 @@ ${instructionsBlock}
 MARKET DATA (sorted by opportunity):
 ${symbolSummaries}
 
-Identify actionable trading opportunities. Be aggressive — find setups to BUY and existing positions to SELL for profit or cut for loss.`;
+Identify actionable trading opportunities. Be aggressive — find setups to BUY and existing positions to SELL for profit or cut for loss.
+IMPORTANT: You MUST identify at least 1 bullish OR 1 bearish signal. Saying "no opportunities" is NOT acceptable — look harder at RSI extremes, MACD divergences, positions to trim/exit, or mean-reversion setups.${!isMarketOpen() ? '\nNote: Market is currently CLOSED. Focus on limit order setups for the next open and position management.' : ''}`;
 }
 
 function buildDecisionPrompt(

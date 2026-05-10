@@ -3,7 +3,7 @@ import { decrypt } from './credential-store.js';
 import { createBrokerAdapter } from '../broker/factory.js';
 import { createAIProvider } from '../ai/factory.js';
 import { updateRiskConfig } from '../risk/manager.js';
-import { setAnalysisInterval } from '../agent/scheduler.js';
+import { setAnalysisInterval, autoStartAgent } from '../agent/scheduler.js';
 import { logger } from '../config/logger.js';
 import { trackError } from './error-tracker.js';
 import type { AIProviderType } from '@self-invest/shared';
@@ -13,6 +13,7 @@ export async function restoreState(): Promise<void> {
   await restoreAIProvider();
   await restoreRiskConfig();
   await restoreAnalysisInterval();
+  await autoStartIfConfigured();
 }
 
 async function restoreBrokerConnection(): Promise<void> {
@@ -120,5 +121,16 @@ async function restoreAnalysisInterval(): Promise<void> {
     }
   } catch (err) {
     trackError('config', err, { context: 'restore_analysis_interval' });
+  }
+}
+
+async function autoStartIfConfigured(): Promise<void> {
+  try {
+    const started = await autoStartAgent();
+    if (started) {
+      logger.info('Agent auto-started successfully');
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Agent auto-start failed — can be started manually from UI');
   }
 }

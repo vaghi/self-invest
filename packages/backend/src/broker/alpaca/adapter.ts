@@ -5,6 +5,7 @@ import type {
 import type { IBrokerAdapter } from '../interface.js';
 import { logger } from '../../config/logger.js';
 import { trackError } from '../../services/error-tracker.js';
+import { cached, invalidate } from '../../services/cache.js';
 
 const TIMEFRAME_MAP: Record<Timeframe, string> = {
   '1min': '1Min', '5min': '5Min', '15min': '15Min',
@@ -96,41 +97,45 @@ export class AlpacaAdapter implements IBrokerAdapter {
   }
 
   async getBalance(): Promise<Balance> {
-    const acc = await this.request<any>(`${this.baseUrl}/v2/account`);
-    const equity = parseFloat(acc.equity);
-    const lastEquity = parseFloat(acc.last_equity);
-    const dayPnL = equity - lastEquity;
-    const dayPnLPercent = lastEquity > 0 ? (dayPnL / lastEquity) * 100 : 0;
-    const cash = parseFloat(acc.cash);
-    const invested = equity - cash;
+    return cached('balance', 10, async () => {
+      const acc = await this.request<any>(`${this.baseUrl}/v2/account`);
+      const equity = parseFloat(acc.equity);
+      const lastEquity = parseFloat(acc.last_equity);
+      const dayPnL = equity - lastEquity;
+      const dayPnLPercent = lastEquity > 0 ? (dayPnL / lastEquity) * 100 : 0;
+      const cash = parseFloat(acc.cash);
+      const invested = equity - cash;
 
-    return {
-      totalValue: acc.equity,
-      cashBalance: acc.cash,
-      investedValue: invested.toFixed(2),
-      buyingPower: acc.buying_power,
-      dayPnL: dayPnL.toFixed(2),
-      dayPnLPercent: dayPnLPercent.toFixed(2),
-      totalPnL: (equity - parseFloat(acc.last_equity)).toFixed(2),
-      totalPnLPercent: dayPnLPercent.toFixed(2),
-    };
+      return {
+        totalValue: acc.equity,
+        cashBalance: acc.cash,
+        investedValue: invested.toFixed(2),
+        buyingPower: acc.buying_power,
+        dayPnL: dayPnL.toFixed(2),
+        dayPnLPercent: dayPnLPercent.toFixed(2),
+        totalPnL: (equity - parseFloat(acc.last_equity)).toFixed(2),
+        totalPnLPercent: dayPnLPercent.toFixed(2),
+      };
+    });
   }
 
   async getPositions(): Promise<Position[]> {
-    const positions = await this.request<any[]>(`${this.baseUrl}/v2/positions`);
-    return positions.map((p) => ({
-      id: p.asset_id,
-      symbol: p.symbol,
-      quantity: p.qty,
-      avgEntryPrice: p.avg_entry_price,
-      currentPrice: p.current_price,
-      marketValue: p.market_value,
-      unrealizedPnL: p.unrealized_pl,
-      unrealizedPnLPercent: p.unrealized_plpc,
-      realizedPnL: '0',
-      side: parseFloat(p.qty) >= 0 ? 'long' as const : 'short' as const,
-      openedAt: new Date().toISOString(),
-    }));
+    return cached('positions', 5, async () => {
+      const positions = await this.request<any[]>(`${this.baseUrl}/v2/positions`);
+      return positions.map((p) => ({
+        id: p.asset_id,
+        symbol: p.symbol,
+        quantity: p.qty,
+        avgEntryPrice: p.avg_entry_price,
+        currentPrice: p.current_price,
+        marketValue: p.market_value,
+        unrealizedPnL: p.unrealized_pl,
+        unrealizedPnLPercent: p.unrealized_plpc,
+        realizedPnL: '0',
+        side: parseFloat(p.qty) >= 0 ? 'long' as const : 'short' as const,
+        openedAt: new Date().toISOString(),
+      }));
+    });
   }
 
   async getPosition(symbol: string): Promise<Position | null> {
@@ -184,6 +189,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
       }).catch((err) => logger.warn({ err }, 'Failed to place stop loss order'));
     }
 
+    await invalidate('balance', 'positions');
     return this.mapOrder(result);
   }
 
@@ -203,36 +209,43 @@ export class AlpacaAdapter implements IBrokerAdapter {
   }
 
   async getQuote(symbol: string): Promise<Quote> {
-    const q = await this.request<any>(`${this.dataUrl}/v2/stocks/${symbol}/quotes/latest?feed=iex`);
-    const quote = q.quote;
-    return {
-      symbol,
-      bidPrice: String(quote.bp),
-      askPrice: String(quote.ap),
-      lastPrice: String((quote.bp + quote.ap) / 2),
-      volume: quote.bs + quote.as,
-      timestamp: quote.t,
-    };
+    return cached(`quote:${symbol}`, 3, async () => {
+      const q = await this.request<any>(`${this.dataUrl}/v2/stocks/${symbol}/quotes/latest?feed=iex`);
+      const quote = q.quote;
+      return {
+        symbol,
+        bidPrice: String(quote.bp),
+        askPrice: String(quote.ap),
+        lastPrice: String((quote.bp + quote.ap) / 2),
+        volume: quote.bs + quote.as,
+        timestamp: quote.t,
+      };
+    });
   }
 
   async getBars(symbol: string, timeframe: Timeframe, start: Date, end: Date): Promise<Bar[]> {
-    const tf = TIMEFRAME_MAP[timeframe];
-    const params = new URLSearchParams({
-      start: start.toISOString(),
-      end: end.toISOString(),
-      timeframe: tf,
-      limit: '1000',
-      feed: 'iex',
+    const ttl = timeframe === '1day' || timeframe === '1week' ? 900 : 300;
+    const cacheKey = `bars:${symbol}:${timeframe}`;
+
+    return cached(cacheKey, ttl, async () => {
+      const tf = TIMEFRAME_MAP[timeframe];
+      const params = new URLSearchParams({
+        start: start.toISOString(),
+        end: end.toISOString(),
+        timeframe: tf,
+        limit: '1000',
+        feed: 'iex',
+      });
+      const result = await this.request<any>(`${this.dataUrl}/v2/stocks/${symbol}/bars?${params}`);
+      return (result.bars || []).map((b: any) => ({
+        timestamp: b.t,
+        open: String(b.o),
+        high: String(b.h),
+        low: String(b.l),
+        close: String(b.c),
+        volume: b.v,
+      }));
     });
-    const result = await this.request<any>(`${this.dataUrl}/v2/stocks/${symbol}/bars?${params}`);
-    return (result.bars || []).map((b: any) => ({
-      timestamp: b.t,
-      open: String(b.o),
-      high: String(b.h),
-      low: String(b.l),
-      close: String(b.c),
-      volume: b.v,
-    }));
   }
 
   private mapOrder(o: any): Order {

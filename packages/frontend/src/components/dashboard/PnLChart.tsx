@@ -54,7 +54,7 @@ export function PnLChart({ data }: PnLChartProps) {
 
   const chartData: ChartDatum[] = data.map((point) => ({
     date: point.snapshotAt,
-    label: format(parseISO(point.snapshotAt), 'MMM d'),
+    label: format(parseISO(point.snapshotAt), 'MMM d, h:mm a'),
     value: parseFloat(point.totalValue),
   }));
 
@@ -66,6 +66,15 @@ export function PnLChart({ data }: PnLChartProps) {
   const isUptrend = chartData.length >= 2 && chartData[chartData.length - 1].value >= chartData[0].value;
   const strokeColor = isUptrend ? '#22c55e' : '#ef4444';
   const fillId = isUptrend ? 'fillGreen' : 'fillRed';
+
+  // Show only unique date labels to avoid repetition on X-axis
+  const seenDates = new Set<string>();
+  const deduplicatedTicks = chartData.map((d) => {
+    const dayLabel = format(parseISO(d.date), 'MMM d');
+    if (seenDates.has(dayLabel)) return '';
+    seenDates.add(dayLabel);
+    return dayLabel;
+  });
 
   return (
     <div className="rounded-xl bg-surface-800 border border-surface-700 p-6">
@@ -90,6 +99,8 @@ export function PnLChart({ data }: PnLChartProps) {
             tickLine={false}
             tick={{ fill: '#9ca3af', fontSize: 11 }}
             dy={8}
+            tickFormatter={(_value, index) => deduplicatedTicks[index]}
+            interval="preserveStartEnd"
           />
           <YAxis
             domain={[min - padding, max + padding]}

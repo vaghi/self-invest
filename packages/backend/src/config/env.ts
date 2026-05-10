@@ -18,8 +18,11 @@ const envSchema = z.object({
   ALPACA_PAPER: z.string().default('true'),
   OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
   LMSTUDIO_BASE_URL: z.string().default('http://localhost:1234'),
-  AGENT_ENABLED: z.string().default('false'),
-  AGENT_ANALYSIS_INTERVAL_MINUTES: z.string().default('2'),
+  AGENT_ENABLED: z.string().default('true'),
+  AGENT_AUTO_START: z.string().default('true'),
+  AGENT_ANALYSIS_INTERVAL_MINUTES: z.string().default('1'),
+  AGENT_OFF_HOURS_INTERVAL_MINUTES: z.string().default('5'),
+  AGENT_FORCE_TRADE_MODE: z.string().default('true'),
   AGENT_MAX_DAILY_AI_COST_USD: z.string().default('10'),
 });
 
@@ -46,6 +49,9 @@ export const env = {
   ollamaBaseUrl: parsed.data.OLLAMA_BASE_URL,
   lmstudioBaseUrl: parsed.data.LMSTUDIO_BASE_URL,
   agentEnabled: parsed.data.AGENT_ENABLED === 'true',
+  agentAutoStart: parsed.data.AGENT_AUTO_START === 'true',
   agentAnalysisIntervalMinutes: parseInt(parsed.data.AGENT_ANALYSIS_INTERVAL_MINUTES),
+  agentOffHoursIntervalMinutes: parseInt(parsed.data.AGENT_OFF_HOURS_INTERVAL_MINUTES),
+  agentForceTradeMode: parsed.data.AGENT_FORCE_TRADE_MODE === 'true',
   agentMaxDailyAiCostUsd: parseFloat(parsed.data.AGENT_MAX_DAILY_AI_COST_USD),
 } as const;

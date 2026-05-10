@@ -2,6 +2,7 @@ import http from 'http';
 import { createApp } from './server/app.js';
 import { setupWebSocket } from './server/websocket.js';
 import { connectDatabase } from './db/client.js';
+import { connectRedis } from './services/cache.js';
 import { restoreState } from './services/startup-restore.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
@@ -10,6 +11,7 @@ async function main() {
   await connectDatabase();
   logger.info('Database connected');
 
+  await connectRedis();
   await restoreState();
 
   const app = createApp();

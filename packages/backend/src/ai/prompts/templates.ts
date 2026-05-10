@@ -29,6 +29,9 @@ Rules:
 - When a position has gained 2-5%, consider taking profits
 - When a position is losing, cut losses quickly at the stop loss level
 - Confidence values 0-1. Assign >= 0.65 when 2+ indicators align
+- NEVER return both bullishSymbols and bearishSymbols as empty arrays. There is ALWAYS at least one opportunity.
+- If the market appears flat, look for mean-reversion setups (RSI extremes) or positions that should be managed.
+- If you hold positions, each one with >= 2% gain is a take-profit candidate (bearish signal). Each one with <= -1.5% loss is a cut-loss candidate (also bearish).
 - Respond ONLY with the JSON object, no additional text`;
 
 export const TRADE_DECISION_SYSTEM_PROMPT = `You are an autonomous active trading agent. Your ONLY purpose is to grow the portfolio by actively buying and selling stocks. You think like a professional day trader combined with a swing trader.
@@ -99,7 +102,7 @@ Respond ONLY with the JSON object, no additional text.`;
 
 export const MARKET_ANALYSIS_COMPACT_PROMPT = `You are a stock trader. Analyze market data and return JSON:
 {"bullishSymbols":[{"symbol":"AAPL","reason":"RSI oversold","confidence":0.7}],"bearishSymbols":[{"symbol":"TSLA","reason":"below SMA50","confidence":0.6}],"marketSentiment":"bullish","keyEvents":[],"riskFactors":[],"overallConfidence":0.7}
-Rules: confidence 0-1, be active, find opportunities. Respond ONLY with JSON.`;
+Rules: confidence 0-1, be active, find opportunities. NEVER return both arrays empty — always find at least 1 signal. Respond ONLY with JSON.`;
 
 export const TRADE_DECISION_COMPACT_PROMPT = `You are a stock trader. Given portfolio and analysis, recommend trades as JSON:
 {"trades":[{"symbol":"AAPL","action":"buy","quantity":"10","orderType":"market","stopLossPrice":"145.00","takeProfitPrice":"160.00","confidence":0.8,"reasoning":"oversold bounce"}],"portfolioAssessment":"diversified","marketOutlook":"bullish"}
