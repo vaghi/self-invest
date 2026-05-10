@@ -18,6 +18,7 @@ export type ErrorCategory =
   | 'agent_pipeline'
   | 'risk_validation'
   | 'trade_execution'
+  | 'stock_discovery'
   | 'database'
   | 'websocket'
   | 'market_data'

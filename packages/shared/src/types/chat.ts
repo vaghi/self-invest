@@ -1,5 +1,5 @@
 export type ChatMessageRole = 'user' | 'agent' | 'system';
-export type MessageClassification = 'persistent_rule' | 'one_time_command' | 'question' | 'acknowledgment';
+export type MessageClassification = 'persistent_rule' | 'one_time_command' | 'research_command' | 'question' | 'acknowledgment';
 export type InstructionStatus = 'active' | 'disabled';
 
 export interface ChatMessage {
@@ -35,5 +35,10 @@ export interface ChatSendResponse {
     side: 'buy' | 'sell';
     status: 'submitted' | 'rejected';
     reason?: string;
+  };
+  researchResult?: {
+    symbols: string[];
+    addedToWatchlist: boolean;
+    pipelineTriggered: boolean;
   };
 }
