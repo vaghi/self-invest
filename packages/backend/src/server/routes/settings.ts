@@ -11,11 +11,20 @@ export const settingsRouter = Router();
 
 settingsRouter.get('/ai-provider', async (_req, res) => {
   const provider = getActiveAIProvider();
+  let healthy = false;
+  if (provider) {
+    try {
+      healthy = await provider.healthCheck();
+    } catch {
+      healthy = false;
+    }
+  }
   res.json({
     active: provider ? {
       type: provider.name,
       model: provider.model,
       isLocal: provider.isLocal,
+      healthy,
     } : null,
     availableProviders: AI_PROVIDER_MODELS,
   });
@@ -66,7 +75,7 @@ settingsRouter.post('/ai-provider', async (req, res) => {
     });
 
     res.json({
-      active: { type: provider.name, model: provider.model, isLocal: provider.isLocal },
+      active: { type: provider.name, model: provider.model, isLocal: provider.isLocal, healthy: true },
       healthy: true,
     });
   } catch (err: any) {

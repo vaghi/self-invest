@@ -4,7 +4,7 @@ import api from '../services/api';
 import { showError, showSuccess } from './toast.store';
 
 interface SettingsState {
-  aiProvider: { type: AIProviderType; model: string; isLocal: boolean } | null;
+  aiProvider: { type: AIProviderType; model: string; isLocal: boolean; healthy: boolean } | null;
   brokerConnected: boolean;
   isPaperTrading: boolean;
   loading: boolean;

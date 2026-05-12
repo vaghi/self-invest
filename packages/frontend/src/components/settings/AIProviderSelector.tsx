@@ -143,11 +143,19 @@ export default function AIProviderSelector() {
       </h3>
 
       {/* Currently active provider */}
-      {aiProvider && (
+      {aiProvider && aiProvider.healthy && (
         <div className="flex items-center gap-2 rounded-lg bg-brand-600/10 border border-brand-500/20 px-4 py-2.5">
           <CheckCircle className="h-4 w-4 text-brand-400" />
           <span className="text-sm text-brand-400 font-medium">
             Active: {allProviderLabels[aiProvider.type] ?? aiProvider.type} &mdash; {aiProvider.model}
+          </span>
+        </div>
+      )}
+      {aiProvider && !aiProvider.healthy && (
+        <div className="flex items-center gap-2 rounded-lg bg-yellow-600/10 border border-yellow-500/20 px-4 py-2.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+          <span className="text-sm text-yellow-400 font-medium">
+            Unreachable: {allProviderLabels[aiProvider.type] ?? aiProvider.type} &mdash; {aiProvider.model}
           </span>
         </div>
       )}
@@ -258,10 +266,15 @@ export default function AIProviderSelector() {
               <span className="h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" />
               <span className="text-xs text-green-400">Connected</span>
             </>
-          ) : aiProvider ? (
+          ) : aiProvider && aiProvider.healthy ? (
+            <>
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+              <span className="text-xs text-green-400">Active</span>
+            </>
+          ) : aiProvider && !aiProvider.healthy ? (
             <>
               <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-              <span className="text-xs text-yellow-400">Previous config active</span>
+              <span className="text-xs text-yellow-400">Unreachable</span>
             </>
           ) : (
             <>

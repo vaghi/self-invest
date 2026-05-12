@@ -1,7 +1,7 @@
 import { prisma } from '../db/client.js';
 import { decrypt } from './credential-store.js';
 import { createBrokerAdapter } from '../broker/factory.js';
-import { createAIProvider } from '../ai/factory.js';
+import { createAIProvider, clearActiveAIProvider } from '../ai/factory.js';
 import { updateRiskConfig } from '../risk/manager.js';
 import { setAnalysisInterval, autoStartAgent } from '../agent/scheduler.js';
 import { logger } from '../config/logger.js';
@@ -74,7 +74,8 @@ async function restoreAIProvider(): Promise<void> {
     if (healthy) {
       logger.info({ type: config.type, model: config.model }, 'AI provider restored from database');
     } else {
-      logger.warn({ type: config.type, model: config.model }, 'AI provider restored but health check failed — may need reconfiguration');
+      clearActiveAIProvider();
+      logger.warn({ type: config.type, model: config.model }, 'AI provider health check failed on startup — not activating until provider is reachable');
     }
   } catch (err) {
     trackError('ai_provider', err, { context: 'restore_on_startup' });

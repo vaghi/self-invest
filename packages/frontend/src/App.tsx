@@ -9,6 +9,7 @@ import { ChatPanel } from './components/chat/ChatPanel';
 import { wsClient } from './services/websocket';
 import { usePortfolioStore } from './stores/portfolio.store';
 import { useAgentStore } from './stores/agent.store';
+import { useSettingsStore } from './stores/settings.store';
 import { useChatStore } from './stores/chat.store';
 import { showError } from './stores/toast.store';
 import Dashboard from './pages/Dashboard';
@@ -31,8 +32,11 @@ function WebSocketManager() {
   const fetchPositions = usePortfolioStore((s) => s.fetchPositions);
   const setAgentState = useAgentStore((s) => s.setState);
   const addChatMessage = useChatStore((s) => s.addMessage);
+  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
 
   useEffect(() => {
+    fetchSettings();
+
     const wsUrl = `ws://${window.location.hostname}:${window.location.port}/ws`;
     wsClient.connect(wsUrl);
 

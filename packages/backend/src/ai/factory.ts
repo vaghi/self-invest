@@ -61,6 +61,10 @@ export function getActiveAIProvider(): IAIProvider | null {
   return activeProvider;
 }
 
+export function clearActiveAIProvider(): void {
+  activeProvider = null;
+}
+
 export function requireAIProvider(): IAIProvider {
   if (!activeProvider) {
     throw new Error('No AI provider configured. Go to Settings to select one.');

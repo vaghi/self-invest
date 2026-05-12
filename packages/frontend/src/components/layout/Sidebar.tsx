@@ -30,7 +30,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const brokerConnected = useSettingsStore((s) => s.brokerConnected);
+  const { brokerConnected, initialLoading } = useSettingsStore();
   const fetchBalance = usePortfolioStore((s) => s.fetchBalance);
   const fetchPositions = usePortfolioStore((s) => s.fetchPositions);
   const fetchStatus = useAgentStore((s) => s.fetchStatus);
@@ -93,14 +93,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="flex items-center gap-2 text-xs">
               <span
                 className={`h-2 w-2 rounded-full ${
-                  brokerConnected ? 'bg-green-500' : 'bg-red-500'
+                  initialLoading ? 'bg-gray-500 animate-pulse' : brokerConnected ? 'bg-green-500' : 'bg-red-500'
                 }`}
               />
               <span className="text-gray-400">
-                {brokerConnected ? 'Broker connected' : 'Broker disconnected'}
+                {initialLoading ? 'Checking broker...' : brokerConnected ? 'Broker connected' : 'Broker disconnected'}
               </span>
             </div>
-            {brokerConnected && (
+            {brokerConnected && !initialLoading && (
               <button
                 onClick={handleRefresh}
                 aria-label="Refresh data"
